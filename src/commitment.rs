@@ -17,9 +17,10 @@ use crate::Nonce;
 
 /// Compute a commitment over an encapsulation key and nonce.
 ///
-/// The commitment is `Hash(ek_bytes || nonce)`.
+/// The commitment is `Hash("shortcake-commitment-v1" || ek_bytes || nonce)`.
 pub fn commit<H: Digest>(ek_bytes: &[u8], nonce: &Nonce) -> Output<H> {
     let mut hasher = H::new();
+    hasher.update(b"shortcake-commitment-v1");
     hasher.update(ek_bytes);
     hasher.update(nonce);
     hasher.finalize()

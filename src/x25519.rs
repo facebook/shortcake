@@ -24,7 +24,7 @@ use crate::ciphersuite::{CipherSuite, Kem};
 pub struct X25519Kem;
 
 /// X25519 shared secret (32 bytes).
-#[derive(Clone, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct X25519SharedSecret([u8; 32]);
 
 impl AsRef<[u8]> for X25519SharedSecret {
@@ -33,24 +33,12 @@ impl AsRef<[u8]> for X25519SharedSecret {
     }
 }
 
-impl Zeroize for X25519SharedSecret {
-    fn zeroize(&mut self) {
-        self.0.zeroize();
-    }
-}
-
 /// X25519 decapsulation (private) key.
 ///
 /// Stores the raw 32-byte secret to enable proper zeroization.
-#[derive(Clone, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct X25519DecapsulationKey {
     bytes: [u8; 32],
-}
-
-impl Zeroize for X25519DecapsulationKey {
-    fn zeroize(&mut self) {
-        self.bytes.zeroize();
-    }
 }
 
 impl X25519DecapsulationKey {
@@ -80,7 +68,7 @@ impl X25519DecapsulationKey {
 }
 
 /// X25519 encapsulation (public) key.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct X25519EncapsulationKey(PublicKey);
 
 impl X25519EncapsulationKey {
@@ -102,7 +90,7 @@ impl AsRef<[u8]> for X25519EncapsulationKey {
 }
 
 /// X25519 ciphertext (ephemeral public key).
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct X25519Ciphertext(PublicKey);
 
 impl X25519Ciphertext {

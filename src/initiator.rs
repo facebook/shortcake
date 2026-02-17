@@ -32,7 +32,6 @@ pub struct InitiatorFirstMessage<CS: CipherSuite> {
 }
 
 /// The third message sent by the Initiator (after receiving Responder's response).
-#[derive(Clone, Debug)]
 pub struct InitiatorThirdMessage {
     /// The Initiator's nonce, opening the commitment.
     pub initiator_nonce: Nonce,

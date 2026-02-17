@@ -46,7 +46,7 @@ impl core::fmt::Debug for Sas {
 ///
 /// The computation is:
 /// ```text
-/// hash = Hash(initiator_nonce || ct_bytes)
+/// hash = Hash("shortcake-sas-v1" || initiator_nonce || ct_bytes)
 /// sas = responder_nonce[0..5] XOR hash[0..5]
 /// ```
 pub fn compute_sas<H: Digest>(
@@ -55,6 +55,7 @@ pub fn compute_sas<H: Digest>(
     ct_bytes: &[u8],
 ) -> Sas {
     let mut hasher = H::new();
+    hasher.update(b"shortcake-sas-v1");
     hasher.update(initiator_nonce);
     hasher.update(ct_bytes);
     let hash = hasher.finalize();
