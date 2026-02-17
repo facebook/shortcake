@@ -4,9 +4,9 @@
 // LICENSE-MIT file in the root directory of this source tree, or the
 // Apache License, Version 2.0 found in the LICENSE-APACHE file.
 
-//! Primary (responder) protocol implementation.
+//! Responder protocol implementation.
 //!
-//! The Primary responds to the Companion's first message by encapsulating
+//! The Responder responds to the Initiator's first message by encapsulating
 //! to their public key and sending back a ciphertext and nonce.
 
 use core::marker::PhantomData;
@@ -22,31 +22,31 @@ use crate::kdf;
 use crate::sas::{compute_sas, Sas};
 use crate::Nonce;
 
-/// The Primary's response message.
+/// The Responder's response message.
 #[derive(Clone)]
-pub struct PrimaryResponse<CS: CipherSuite> {
+pub struct ResponderResponse<CS: CipherSuite> {
     /// The ciphertext from KEM encapsulation.
     pub ct: <CS::Kem as Kem>::Ciphertext,
-    /// The Primary's nonce.
-    pub primary_nonce: Nonce,
+    /// The Responder's nonce.
+    pub responder_nonce: Nonce,
 }
 
-/// Entry point for the Primary protocol.
-pub struct Primary<CS: CipherSuite> {
+/// Entry point for the Responder protocol.
+pub struct Responder<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Primary<CS>
+impl<CS: CipherSuite> Responder<CS>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
-    /// Start the protocol as Primary upon receiving Companion's first message.
+    /// Start the protocol as Responder upon receiving Initiator's first message.
     ///
     /// # Arguments
     ///
     /// * `rng` - A cryptographically secure random number generator.
-    /// * `ek` - The Companion's encapsulation (public) key.
-    /// * `commitment` - The Companion's commitment.
+    /// * `ek` - The Initiator's encapsulation (public) key.
+    /// * `commitment` - The Initiator's commitment.
     ///
     /// # Returns
     ///
@@ -55,79 +55,83 @@ where
         rng: &mut impl CryptoRngCore,
         ek: <CS::Kem as Kem>::EncapsulationKey,
         commitment: Output<CS::Hash>,
-    ) -> Result<(PrimaryAwaitingNonce<CS>, PrimaryResponse<CS>), Error> {
-        // Encapsulate to Companion's public key
+    ) -> Result<(ResponderAwaitingNonce<CS>, ResponderResponse<CS>), Error> {
+        // Encapsulate to Initiator's public key
         let (ct, shared_secret) =
             CS::Kem::encaps(&ek, rng).map_err(|_| Error::EncapsulationFailed)?;
 
-        // Generate Primary's nonce
-        let mut primary_nonce = [0u8; 32];
-        rng.fill_bytes(&mut primary_nonce);
+        // Generate Responder's nonce
+        let mut responder_nonce = [0u8; 32];
+        rng.fill_bytes(&mut responder_nonce);
 
-        let state = PrimaryAwaitingNonce {
+        let state = ResponderAwaitingNonce {
             ek,
             commitment,
-            primary_nonce,
+            responder_nonce,
             ct: ct.clone(),
             shared_secret: Some(shared_secret),
             _marker: PhantomData,
         };
 
-        let message = PrimaryResponse { ct, primary_nonce };
+        let message = ResponderResponse {
+            ct,
+            responder_nonce,
+        };
 
         Ok((state, message))
     }
 }
 
-/// Primary state after sending response, awaiting Companion's nonce.
-pub struct PrimaryAwaitingNonce<CS: CipherSuite>
+/// Responder state after sending response, awaiting Initiator's nonce.
+pub struct ResponderAwaitingNonce<CS: CipherSuite>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
     ek: <CS::Kem as Kem>::EncapsulationKey,
     commitment: Output<CS::Hash>,
-    primary_nonce: Nonce,
+    responder_nonce: Nonce,
     ct: <CS::Kem as Kem>::Ciphertext,
     shared_secret: Option<<CS::Kem as Kem>::SharedSecret>,
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Drop for PrimaryAwaitingNonce<CS>
+impl<CS: CipherSuite> Drop for ResponderAwaitingNonce<CS>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
     fn drop(&mut self) {
-        self.primary_nonce.zeroize();
+        self.responder_nonce.zeroize();
         if let Some(ref mut ss) = self.shared_secret {
             ss.zeroize();
         }
     }
 }
 
-impl<CS: CipherSuite> PrimaryAwaitingNonce<CS>
+impl<CS: CipherSuite> ResponderAwaitingNonce<CS>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
-    /// Handle the Companion's third message containing their nonce.
+    /// Handle the Initiator's third message containing their nonce.
     ///
     /// This verifies the commitment and computes the SAS.
     ///
     /// # Arguments
     ///
-    /// * `companion_nonce` - The Companion's nonce (opens the commitment).
+    /// * `initiator_nonce` - The Initiator's nonce (opens the commitment).
     ///
     /// # Returns
     ///
     /// The next state on success.
-    pub fn handle_companion_nonce(
+    pub fn handle_initiator_nonce(
         mut self,
-        companion_nonce: Nonce,
-    ) -> Result<PrimaryAwaitingSasConfirmation<CS>, Error> {
+        initiator_nonce: Nonce,
+    ) -> Result<ResponderAwaitingSasConfirmation<CS>, Error> {
         // Verify commitment
-        commitment::open::<CS::Hash>(self.ek.as_ref(), &companion_nonce, &self.commitment)?;
+        commitment::open::<CS::Hash>(self.ek.as_ref(), &initiator_nonce, &self.commitment)?;
 
         // Compute SAS
-        let sas = compute_sas::<CS::Hash>(&self.primary_nonce, &companion_nonce, self.ct.as_ref());
+        let sas =
+            compute_sas::<CS::Hash>(&self.responder_nonce, &initiator_nonce, self.ct.as_ref());
 
         // Take shared_secret out (will be None after this, but we're consuming self anyway)
         let shared_secret = self
@@ -135,7 +139,7 @@ where
             .take()
             .expect("shared_secret should always be Some");
 
-        Ok(PrimaryAwaitingSasConfirmation {
+        Ok(ResponderAwaitingSasConfirmation {
             sas,
             shared_secret,
             _marker: PhantomData,
@@ -143,9 +147,9 @@ where
     }
 }
 
-/// Primary state after verifying commitment and computing SAS, awaiting user confirmation.
+/// Responder state after verifying commitment and computing SAS, awaiting user confirmation.
 #[derive(ZeroizeOnDrop)]
-pub struct PrimaryAwaitingSasConfirmation<CS: CipherSuite>
+pub struct ResponderAwaitingSasConfirmation<CS: CipherSuite>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
@@ -156,7 +160,7 @@ where
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> PrimaryAwaitingSasConfirmation<CS>
+impl<CS: CipherSuite> ResponderAwaitingSasConfirmation<CS>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {

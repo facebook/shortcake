@@ -6,8 +6,8 @@
 
 //! Commitment scheme for the protocol.
 //!
-//! The commitment binds the companion's encapsulation key and nonce,
-//! preventing the primary from adaptively choosing their response.
+//! The commitment binds the initiator's encapsulation key and nonce,
+//! preventing the responder from adaptively choosing their response.
 
 use digest::{Digest, Output};
 use subtle::ConstantTimeEq;

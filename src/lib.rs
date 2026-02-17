@@ -12,7 +12,7 @@
 //! ## Overview
 //!
 //! This crate implements a short authenticated strings (SAS) protocol for
-//! establishing a shared secret between two parties (Companion and Primary)
+//! establishing a shared secret between two parties (Initiator and Responder)
 //! with human verification of a short code.
 //!
 //! ## Usage
@@ -26,19 +26,21 @@
 
 mod ciphersuite;
 mod commitment;
-mod companion;
 mod error;
+mod initiator;
 mod kdf;
-mod primary;
+mod responder;
 mod sas;
 
 pub use ciphersuite::{CipherSuite, Kem};
-pub use companion::{
-    Companion, CompanionAwaitingResponse, CompanionAwaitingSasConfirmation, CompanionFirstMessage,
-    CompanionThirdMessage,
-};
 pub use error::Error;
-pub use primary::{Primary, PrimaryAwaitingNonce, PrimaryAwaitingSasConfirmation, PrimaryResponse};
+pub use initiator::{
+    Initiator, InitiatorAwaitingResponse, InitiatorAwaitingSasConfirmation, InitiatorFirstMessage,
+    InitiatorThirdMessage,
+};
+pub use responder::{
+    Responder, ResponderAwaitingNonce, ResponderAwaitingSasConfirmation, ResponderResponse,
+};
 pub use sas::Sas;
 
 #[cfg(feature = "x25519-sha256")]

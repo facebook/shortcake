@@ -4,9 +4,9 @@
 // LICENSE-MIT file in the root directory of this source tree, or the
 // Apache License, Version 2.0 found in the LICENSE-APACHE file.
 
-//! Companion (initiator) protocol implementation.
+//! Initiator protocol implementation.
 //!
-//! The Companion initiates the 3-move SAS protocol by generating a KEM keypair,
+//! The Initiator starts the 3-move SAS protocol by generating a KEM keypair,
 //! creating a commitment, and sending the first message.
 
 use core::marker::PhantomData;
@@ -22,108 +22,108 @@ use crate::kdf;
 use crate::sas::{compute_sas, Sas};
 use crate::Nonce;
 
-/// The first message sent by the Companion.
+/// The first message sent by the Initiator.
 #[derive(Clone)]
-pub struct CompanionFirstMessage<CS: CipherSuite> {
-    /// The Companion's encapsulation (public) key.
+pub struct InitiatorFirstMessage<CS: CipherSuite> {
+    /// The Initiator's encapsulation (public) key.
     pub ek: <CS::Kem as Kem>::EncapsulationKey,
     /// Commitment to the encapsulation key and nonce.
     pub commitment: Output<CS::Hash>,
 }
 
-/// The third message sent by the Companion (after receiving Primary's response).
+/// The third message sent by the Initiator (after receiving Responder's response).
 #[derive(Clone, Debug)]
-pub struct CompanionThirdMessage {
-    /// The Companion's nonce, opening the commitment.
-    pub companion_nonce: Nonce,
+pub struct InitiatorThirdMessage {
+    /// The Initiator's nonce, opening the commitment.
+    pub initiator_nonce: Nonce,
 }
 
-/// Entry point for the Companion protocol.
-pub struct Companion<CS: CipherSuite> {
+/// Entry point for the Initiator protocol.
+pub struct Initiator<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Companion<CS> {
-    /// Start the protocol as Companion.
+impl<CS: CipherSuite> Initiator<CS> {
+    /// Start the protocol as Initiator.
     ///
     /// # Arguments
     ///
     /// * `rng` - A cryptographically secure random number generator.
-    /// * `ek` - The Companion's encapsulation (public) key.
-    /// * `dk` - The Companion's decapsulation (private) key.
+    /// * `ek` - The Initiator's encapsulation (public) key.
+    /// * `dk` - The Initiator's decapsulation (private) key.
     ///
     /// # Returns
     ///
-    /// A tuple of (next_state, first_message) to send to the Primary.
+    /// A tuple of (next_state, first_message) to send to the Responder.
     pub fn start(
         rng: &mut impl CryptoRngCore,
         ek: <CS::Kem as Kem>::EncapsulationKey,
         dk: <CS::Kem as Kem>::DecapsulationKey,
-    ) -> (CompanionAwaitingResponse<CS>, CompanionFirstMessage<CS>) {
-        let mut companion_nonce = [0u8; 32];
-        rng.fill_bytes(&mut companion_nonce);
+    ) -> (InitiatorAwaitingResponse<CS>, InitiatorFirstMessage<CS>) {
+        let mut initiator_nonce = [0u8; 32];
+        rng.fill_bytes(&mut initiator_nonce);
 
-        let commitment = commitment::commit::<CS::Hash>(ek.as_ref(), &companion_nonce);
+        let commitment = commitment::commit::<CS::Hash>(ek.as_ref(), &initiator_nonce);
 
-        let state = CompanionAwaitingResponse {
+        let state = InitiatorAwaitingResponse {
             dk: Some(dk),
             ek: ek.clone(),
-            companion_nonce,
+            initiator_nonce,
             _marker: PhantomData,
         };
 
-        let message = CompanionFirstMessage { ek, commitment };
+        let message = InitiatorFirstMessage { ek, commitment };
 
         (state, message)
     }
 }
 
-/// Companion state after sending the first message, awaiting Primary's response.
-pub struct CompanionAwaitingResponse<CS: CipherSuite>
+/// Initiator state after sending the first message, awaiting Responder's response.
+pub struct InitiatorAwaitingResponse<CS: CipherSuite>
 where
     <CS::Kem as Kem>::DecapsulationKey: Zeroize,
 {
     dk: Option<<CS::Kem as Kem>::DecapsulationKey>,
     ek: <CS::Kem as Kem>::EncapsulationKey,
-    companion_nonce: Nonce,
+    initiator_nonce: Nonce,
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Drop for CompanionAwaitingResponse<CS>
+impl<CS: CipherSuite> Drop for InitiatorAwaitingResponse<CS>
 where
     <CS::Kem as Kem>::DecapsulationKey: Zeroize,
 {
     fn drop(&mut self) {
-        self.companion_nonce.zeroize();
+        self.initiator_nonce.zeroize();
         if let Some(ref mut dk) = self.dk {
             dk.zeroize();
         }
     }
 }
 
-impl<CS: CipherSuite> CompanionAwaitingResponse<CS>
+impl<CS: CipherSuite> InitiatorAwaitingResponse<CS>
 where
     <CS::Kem as Kem>::DecapsulationKey: Zeroize,
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
-    /// Handle the Primary's response message.
+    /// Handle the Responder's response message.
     ///
     /// This decapsulates the ciphertext to recover the shared secret,
     /// checks for reflection attacks, and computes the SAS.
     ///
     /// # Arguments
     ///
-    /// * `ct` - The ciphertext from the Primary.
-    /// * `primary_nonce` - The Primary's nonce.
+    /// * `ct` - The ciphertext from the Responder.
+    /// * `responder_nonce` - The Responder's nonce.
     ///
     /// # Returns
     ///
     /// A tuple of (next_state, third_message) on success.
-    pub fn handle_primary_response(
+    pub fn handle_responder_response(
         mut self,
         ct: <CS::Kem as Kem>::Ciphertext,
-        primary_nonce: Nonce,
-    ) -> Result<(CompanionAwaitingSasConfirmation<CS>, CompanionThirdMessage), Error> {
+        responder_nonce: Nonce,
+    ) -> Result<(InitiatorAwaitingSasConfirmation<CS>, InitiatorThirdMessage), Error> {
         // Check for reflection attack: ek must not equal ct
         if self.ek.as_ref() == ct.as_ref() {
             return Err(Error::ReflectionDetected);
@@ -136,25 +136,25 @@ where
         let shared_secret = CS::Kem::decaps(&dk, &ct).map_err(|_| Error::DecapsulationFailed)?;
 
         // Compute SAS
-        let sas = compute_sas::<CS::Hash>(&primary_nonce, &self.companion_nonce, ct.as_ref());
+        let sas = compute_sas::<CS::Hash>(&responder_nonce, &self.initiator_nonce, ct.as_ref());
 
-        let next_state = CompanionAwaitingSasConfirmation {
+        let next_state = InitiatorAwaitingSasConfirmation {
             sas,
             shared_secret,
             _marker: PhantomData,
         };
 
-        let message = CompanionThirdMessage {
-            companion_nonce: self.companion_nonce,
+        let message = InitiatorThirdMessage {
+            initiator_nonce: self.initiator_nonce,
         };
 
         Ok((next_state, message))
     }
 }
 
-/// Companion state after computing the SAS, awaiting user confirmation.
+/// Initiator state after computing the SAS, awaiting user confirmation.
 #[derive(ZeroizeOnDrop)]
-pub struct CompanionAwaitingSasConfirmation<CS: CipherSuite>
+pub struct InitiatorAwaitingSasConfirmation<CS: CipherSuite>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {
@@ -165,7 +165,7 @@ where
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> CompanionAwaitingSasConfirmation<CS>
+impl<CS: CipherSuite> InitiatorAwaitingSasConfirmation<CS>
 where
     <CS::Kem as Kem>::SharedSecret: Zeroize,
 {

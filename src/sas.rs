@@ -46,22 +46,22 @@ impl core::fmt::Debug for Sas {
 ///
 /// The computation is:
 /// ```text
-/// hash = Hash(companion_nonce || ct_bytes)
-/// sas = primary_nonce[0..5] XOR hash[0..5]
+/// hash = Hash(initiator_nonce || ct_bytes)
+/// sas = responder_nonce[0..5] XOR hash[0..5]
 /// ```
 pub fn compute_sas<H: Digest>(
-    primary_nonce: &Nonce,
-    companion_nonce: &Nonce,
+    responder_nonce: &Nonce,
+    initiator_nonce: &Nonce,
     ct_bytes: &[u8],
 ) -> Sas {
     let mut hasher = H::new();
-    hasher.update(companion_nonce);
+    hasher.update(initiator_nonce);
     hasher.update(ct_bytes);
     let hash = hasher.finalize();
 
     let mut sas = [0u8; SAS_LEN];
     for i in 0..SAS_LEN {
-        sas[i] = primary_nonce[i] ^ hash[i];
+        sas[i] = responder_nonce[i] ^ hash[i];
     }
     Sas(sas)
 }
@@ -75,12 +75,12 @@ mod tests {
     fn test_sas_deterministic() {
         use sha2::Sha256;
 
-        let primary_nonce = [1u8; 32];
-        let companion_nonce = [2u8; 32];
+        let responder_nonce = [1u8; 32];
+        let initiator_nonce = [2u8; 32];
         let ct = [3u8; 32];
 
-        let sas1 = compute_sas::<Sha256>(&primary_nonce, &companion_nonce, &ct);
-        let sas2 = compute_sas::<Sha256>(&primary_nonce, &companion_nonce, &ct);
+        let sas1 = compute_sas::<Sha256>(&responder_nonce, &initiator_nonce, &ct);
+        let sas2 = compute_sas::<Sha256>(&responder_nonce, &initiator_nonce, &ct);
 
         assert_eq!(sas1, sas2);
     }
@@ -90,15 +90,15 @@ mod tests {
     fn test_sas_changes_with_inputs() {
         use sha2::Sha256;
 
-        let primary_nonce = [1u8; 32];
-        let companion_nonce = [2u8; 32];
+        let responder_nonce = [1u8; 32];
+        let initiator_nonce = [2u8; 32];
         let ct = [3u8; 32];
 
-        let sas1 = compute_sas::<Sha256>(&primary_nonce, &companion_nonce, &ct);
+        let sas1 = compute_sas::<Sha256>(&responder_nonce, &initiator_nonce, &ct);
 
-        let mut different_nonce = primary_nonce;
+        let mut different_nonce = responder_nonce;
         different_nonce[0] = 99;
-        let sas2 = compute_sas::<Sha256>(&different_nonce, &companion_nonce, &ct);
+        let sas2 = compute_sas::<Sha256>(&different_nonce, &initiator_nonce, &ct);
 
         assert_ne!(sas1, sas2);
     }
