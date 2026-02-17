@@ -1,0 +1,28 @@
+[package]
+name = "shortcake"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A generic Rust implementation of the Pasini-Vaudenay 3-move SAS-based authenticated key agreement protocol"
+repository = "https://github.com/facebook/shortcake"
+keywords = ["cryptography", "sas", "key-agreement", "authentication"]
+categories = ["cryptography", "no-std"]
+
+[features]
+default = []
+std = []
+x25519-sha256 = ["dep:sha2", "dep:x25519-dalek"]
+
+[dependencies]
+digest = { version = "0.10", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+subtle = { version = "2.5", default-features = false }
+zeroize = { version = "1.7", default-features = false, features = ["derive"] }
+rand_core = { version = "0.6", default-features = false }
+
+# Optional dependencies for x25519-sha256 ciphersuite
+sha2 = { version = "0.10", default-features = false, optional = true }
+x25519-dalek = { version = "2.0", default-features = false, features = ["static_secrets"], optional = true }
+
+[dev-dependencies]
+rand = "0.8"
