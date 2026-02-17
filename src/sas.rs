@@ -21,7 +21,7 @@ pub const SAS_LEN: usize = 5;
 /// The raw bytes can be encoded by the caller in any format
 /// (e.g., base32, decimal digits, emoji).
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Sas(pub [u8; SAS_LEN]);
+pub struct Sas(pub(crate) [u8; SAS_LEN]);
 
 impl Sas {
     /// Returns the raw SAS bytes.

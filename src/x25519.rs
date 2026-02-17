@@ -115,6 +115,12 @@ impl AsRef<[u8]> for X25519Ciphertext {
 #[derive(Debug, Clone, Copy)]
 pub struct X25519KemError;
 
+impl core::fmt::Display for X25519KemError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "X25519 KEM operation failed")
+    }
+}
+
 impl Kem for X25519Kem {
     type EncapsulationKey = X25519EncapsulationKey;
     type DecapsulationKey = X25519DecapsulationKey;

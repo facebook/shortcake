@@ -78,10 +78,9 @@ impl<CS: CipherSuite> Initiator<CS> {
 }
 
 /// Initiator state after sending the first message, awaiting Responder's response.
-pub struct InitiatorAwaitingResponse<CS: CipherSuite>
-where
-    <CS::Kem as Kem>::DecapsulationKey: Zeroize,
-{
+pub struct InitiatorAwaitingResponse<CS: CipherSuite> {
+    /// Wrapped in `Option` so the consuming method can `.take()` the value
+    /// before `self` is dropped (Drop still zeroizes if present).
     dk: Option<<CS::Kem as Kem>::DecapsulationKey>,
     ek: <CS::Kem as Kem>::EncapsulationKey,
     initiator_nonce: Nonce,
@@ -153,10 +152,7 @@ where
 
 /// Initiator state after computing the SAS, awaiting user confirmation.
 #[derive(ZeroizeOnDrop)]
-pub struct InitiatorAwaitingSasConfirmation<CS: CipherSuite>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+pub struct InitiatorAwaitingSasConfirmation<CS: CipherSuite> {
     #[zeroize(skip)]
     sas: Sas,
     shared_secret: <CS::Kem as Kem>::SharedSecret,

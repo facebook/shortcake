@@ -41,7 +41,7 @@ pub use initiator::{
 pub use responder::{
     Responder, ResponderAwaitingNonce, ResponderAwaitingSasConfirmation, ResponderResponse,
 };
-pub use sas::Sas;
+pub use sas::{Sas, SAS_LEN};
 
 #[cfg(feature = "x25519-sha256")]
 mod x25519;

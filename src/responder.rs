@@ -83,14 +83,13 @@ where
 }
 
 /// Responder state after sending response, awaiting Initiator's nonce.
-pub struct ResponderAwaitingNonce<CS: CipherSuite>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+pub struct ResponderAwaitingNonce<CS: CipherSuite> {
     ek: <CS::Kem as Kem>::EncapsulationKey,
     commitment: Output<CS::Hash>,
     responder_nonce: Nonce,
     ct: <CS::Kem as Kem>::Ciphertext,
+    /// Wrapped in `Option` so the consuming method can `.take()` the value
+    /// before `self` is dropped (Drop still zeroizes if present).
     shared_secret: Option<<CS::Kem as Kem>::SharedSecret>,
     _marker: PhantomData<CS>,
 }
@@ -149,10 +148,7 @@ where
 
 /// Responder state after verifying commitment and computing SAS, awaiting user confirmation.
 #[derive(ZeroizeOnDrop)]
-pub struct ResponderAwaitingSasConfirmation<CS: CipherSuite>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+pub struct ResponderAwaitingSasConfirmation<CS: CipherSuite> {
     #[zeroize(skip)]
     sas: Sas,
     shared_secret: <CS::Kem as Kem>::SharedSecret,
