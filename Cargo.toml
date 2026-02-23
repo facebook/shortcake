@@ -1,0 +1,44 @@
+[package]
+name = "shortcake"
+version = "0.1.0-pre.1"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "A generic Rust implementation of the Pasini-Vaudenay 3-move SAS-based authenticated key agreement protocol"
+repository = "https://github.com/facebook/shortcake"
+keywords = ["cryptography", "sas", "key-agreement", "authentication"]
+categories = ["cryptography", "no-std"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+std = []
+serde = ["dep:serde"]
+xwing = ["dep:x-wing", "dep:sha3"]
+
+[dependencies]
+digest = { version = "0.11.2", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"], optional = true }
+subtle = { version = "2.5", default-features = false }
+zeroize = { version = "1", default-features = false, features = ["derive"] }
+rand_core = { version = "0.10", default-features = false }
+
+# Optional dependencies for xwing ciphersuite
+x-wing = { version = "0.1.0-rc.0", default-features = false, features = ["zeroize"], optional = true }
+sha3 = { version = "0.11.0-rc.9", default-features = false, optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+hex = "0.4"
+getrandom = { version = "0.4", features = ["sys_rng"] }
+
+[[example]]
+name = "protocol"
+required-features = ["xwing"]
+
+[[bench]]
+name = "shortcake"
+harness = false
