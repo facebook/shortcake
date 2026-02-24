@@ -65,7 +65,7 @@ impl<CS: CipherSuite> Initiator<CS> {
         let commitment = commitment::commit::<CS::Hash>(ek.as_ref(), &initiator_nonce);
 
         let state = InitiatorAwaitingResponse {
-            dk: Some(dk),
+            dk,
             ek: ek.clone(),
             initiator_nonce,
             _marker: PhantomData,
@@ -79,9 +79,7 @@ impl<CS: CipherSuite> Initiator<CS> {
 
 /// Initiator state after sending the first message, awaiting Responder's response.
 pub struct InitiatorAwaitingResponse<CS: CipherSuite> {
-    /// Wrapped in `Option` so the consuming method can `.take()` the value
-    /// before `self` is dropped (Drop still zeroizes if present).
-    dk: Option<<CS::Kem as Kem>::DecapsulationKey>,
+    dk: <CS::Kem as Kem>::DecapsulationKey,
     ek: <CS::Kem as Kem>::EncapsulationKey,
     initiator_nonce: Nonce,
     _marker: PhantomData<CS>,
@@ -93,9 +91,7 @@ where
 {
     fn drop(&mut self) {
         self.initiator_nonce.zeroize();
-        if let Some(ref mut dk) = self.dk {
-            dk.zeroize();
-        }
+        self.dk.zeroize();
     }
 }
 
@@ -118,7 +114,7 @@ where
     ///
     /// A tuple of (next_state, third_message) on success.
     pub fn handle_responder_response(
-        mut self,
+        self,
         ct: <CS::Kem as Kem>::Ciphertext,
         responder_nonce: Nonce,
     ) -> Result<(InitiatorAwaitingSasConfirmation<CS>, InitiatorThirdMessage), Error> {
@@ -127,11 +123,9 @@ where
             return Err(Error::ReflectionDetected);
         }
 
-        // Take dk out (will be None after this, but we're consuming self anyway)
-        let dk = self.dk.take().expect("dk should always be Some");
-
         // Decapsulate to get shared secret
-        let shared_secret = CS::Kem::decaps(&dk, &ct).map_err(|_| Error::DecapsulationFailed)?;
+        let shared_secret =
+            CS::Kem::decaps(&self.dk, &ct).map_err(|_| Error::DecapsulationFailed)?;
 
         // Compute SAS
         let sas = compute_sas::<CS::Hash>(&responder_nonce, &self.initiator_nonce, ct.as_ref());
