@@ -46,19 +46,26 @@ impl<CS: CipherSuite> MessageOne<CS> {
 
     /// Writes the serialized message into the provided buffer.
     ///
+    /// # Errors
+    ///
+    /// Returns [`ShortcakeError::Serialization`] if `buf.len() < Self::size()`.
+    pub fn try_write_to(&self, buf: &mut [u8]) -> Result<(), ShortcakeError> {
+        let pk_len = PublicKeyLen::<CS>::USIZE;
+        if buf.len() < Self::size() {
+            return Err(ShortcakeError::Serialization);
+        }
+        buf[..pk_len].copy_from_slice(&self.public_key);
+        buf[pk_len..Self::size()].copy_from_slice(&self.commitment);
+        Ok(())
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
     /// # Panics
     ///
     /// Panics if `buf.len() < Self::size()`.
     pub fn write_to(&self, buf: &mut [u8]) {
-        let pk_len = PublicKeyLen::<CS>::USIZE;
-        assert!(
-            buf.len() >= Self::size(),
-            "buffer too small: need {} bytes, got {}",
-            Self::size(),
-            buf.len(),
-        );
-        buf[..pk_len].copy_from_slice(&self.public_key);
-        buf[pk_len..Self::size()].copy_from_slice(&self.commitment);
+        self.try_write_to(buf).expect("buffer too small")
     }
 
     /// Serializes this message to a byte vector.
@@ -141,19 +148,26 @@ impl<CS: CipherSuite> MessageTwo<CS> {
 
     /// Writes the serialized message into the provided buffer.
     ///
+    /// # Errors
+    ///
+    /// Returns [`ShortcakeError::Serialization`] if `buf.len() < Self::size()`.
+    pub fn try_write_to(&self, buf: &mut [u8]) -> Result<(), ShortcakeError> {
+        let pk_len = PublicKeyLen::<CS>::USIZE;
+        if buf.len() < Self::size() {
+            return Err(ShortcakeError::Serialization);
+        }
+        buf[..pk_len].copy_from_slice(&self.public_key);
+        buf[pk_len..Self::size()].copy_from_slice(&self.nonce);
+        Ok(())
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
     /// # Panics
     ///
     /// Panics if `buf.len() < Self::size()`.
     pub fn write_to(&self, buf: &mut [u8]) {
-        let pk_len = PublicKeyLen::<CS>::USIZE;
-        assert!(
-            buf.len() >= Self::size(),
-            "buffer too small: need {} bytes, got {}",
-            Self::size(),
-            buf.len(),
-        );
-        buf[..pk_len].copy_from_slice(&self.public_key);
-        buf[pk_len..Self::size()].copy_from_slice(&self.nonce);
+        self.try_write_to(buf).expect("buffer too small")
     }
 
     /// Serializes this message to a byte vector.
@@ -239,17 +253,24 @@ impl<CS: CipherSuite> MessageThree<CS> {
 
     /// Writes the serialized message into the provided buffer.
     ///
+    /// # Errors
+    ///
+    /// Returns [`ShortcakeError::Serialization`] if `buf.len() < Self::size()`.
+    pub fn try_write_to(&self, buf: &mut [u8]) -> Result<(), ShortcakeError> {
+        if buf.len() < Self::size() {
+            return Err(ShortcakeError::Serialization);
+        }
+        buf[..Self::size()].copy_from_slice(&self.nonce);
+        Ok(())
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
     /// # Panics
     ///
     /// Panics if `buf.len() < Self::size()`.
     pub fn write_to(&self, buf: &mut [u8]) {
-        assert!(
-            buf.len() >= Self::size(),
-            "buffer too small: need {} bytes, got {}",
-            Self::size(),
-            buf.len(),
-        );
-        buf[..Self::size()].copy_from_slice(&self.nonce);
+        self.try_write_to(buf).expect("buffer too small")
     }
 
     /// Serializes this message to a byte vector.

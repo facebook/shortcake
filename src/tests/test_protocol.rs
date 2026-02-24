@@ -107,6 +107,22 @@ fn test_serialization_roundtrip_message_three() {
 }
 
 #[test]
+fn test_serialization_buffer_too_small() {
+    let mut rng = StdRng::seed_from_u64(42);
+    let (msg1, initiator) = Initiator::<CS>::start(&mut rng);
+    let (msg2, _) = Responder::respond(&msg1, &mut rng).unwrap();
+    let (msg3, _) = initiator.finish(&msg2).unwrap();
+
+    let mut buf1 = vec![0u8; MessageOne::<CS>::size() - 1];
+    let mut buf2 = vec![0u8; MessageTwo::<CS>::size() - 1];
+    let mut buf3 = vec![0u8; MessageThree::<CS>::size() - 1];
+
+    assert!(matches!(msg1.try_write_to(&mut buf1), Err(ShortcakeError::Serialization)));
+    assert!(matches!(msg2.try_write_to(&mut buf2), Err(ShortcakeError::Serialization)));
+    assert!(matches!(msg3.try_write_to(&mut buf3), Err(ShortcakeError::Serialization)));
+}
+
+#[test]
 fn test_invalid_commitment_rejected() {
     let mut rng = StdRng::seed_from_u64(42);
 

@@ -25,4 +25,8 @@ pub enum ShortcakeError {
     /// Deserialization failed due to invalid input length.
     #[error("deserialization failed: invalid length")]
     Deserialization,
+
+    /// Serialization failed due to an output buffer that was too small.
+    #[error("serialization failed: buffer too small")]
+    Serialization,
 }
