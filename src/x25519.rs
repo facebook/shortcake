@@ -139,6 +139,16 @@ impl Kem for X25519Kem {
         // DH with recipient's public key
         let shared = ephemeral_secret.diffie_hellman(&ek.0);
 
+        // Reject low-order public keys (non-contributory shared secret).
+        // REVIEW COMMENT: was_contributory() checks that the DH output is not all-zero.
+        // Because x25519_dalek clamps the scalar (nonzero, multiple of 8), [s]P = 0
+        // iff P has small order (dividing cofactor 8). All 8 small-order points on
+        // Curve25519 produce the all-zero output, so this single check is sufficient —
+        // no separate pre-check of the input point against the identity is needed.
+        if !shared.was_contributory() {
+            return Err(X25519KemError);
+        }
+
         Ok((
             X25519Ciphertext(ephemeral_public),
             X25519SharedSecret(shared.to_bytes()),
@@ -152,6 +162,12 @@ impl Kem for X25519Kem {
         // DH with the ciphertext (ephemeral public key)
         let secret = dk.to_static_secret();
         let shared = secret.diffie_hellman(&ct.0);
+
+        // Reject low-order ciphertexts (non-contributory shared secret).
+        if !shared.was_contributory() {
+            return Err(X25519KemError);
+        }
+
         Ok(X25519SharedSecret(shared.to_bytes()))
     }
 }
@@ -185,5 +201,70 @@ mod tests {
 
         // Shared secrets must match
         assert_eq!(ss1.as_ref(), ss2.as_ref());
+    }
+
+    #[test]
+    fn test_decaps_rejects_low_order_point() {
+        let dk = X25519DecapsulationKey::from_bytes([1u8; 32]);
+        let low_order_ct = X25519Ciphertext::from_bytes([0u8; 32]);
+        assert!(X25519Kem::decaps(&dk, &low_order_ct).is_err());
+    }
+
+    #[test]
+    fn test_encaps_rejects_low_order_key() {
+        let mut rng = rand::thread_rng();
+        let low_order_ek = X25519EncapsulationKey::from_bytes([0u8; 32]);
+        assert!(X25519Kem::encaps(&low_order_ek, &mut rng).is_err());
+    }
+
+    // REVIEW_TEST: Sanity check that all small-order u-coordinates produce non-contributory
+    // DH outputs. The Montgomery ladder doesn't distinguish curve from twist, so we must
+    // cover both. The curve (cofactor 8) has 8 torsion points giving 4 distinct finite
+    // u-coordinates (negatives share u, identity has none). The twist (cofactor 4) adds
+    // 1 more (p-1). That's 5 distinct u-values mod p; 0 and 1 each have a non-canonical
+    // byte representation below 2^255 (at p and p+1), giving 7 byte patterns total.
+    #[test]
+    fn test_all_small_order_points_rejected() {
+        let small_order_points: [[u8; 32]; 7] = [
+            // u = 0 (identity in X25519 encoding)
+            [0; 32],
+            // u = 1 (order 4)
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // u = 325606250916557431795983626356110631294008115727848805560023387167927233504
+            [0xe0, 0xeb, 0x7a, 0x7c, 0x3b, 0x41, 0xb8, 0xae,
+             0x16, 0x56, 0xe3, 0xfa, 0xf1, 0x9f, 0xc4, 0x6a,
+             0xda, 0x09, 0x8d, 0xeb, 0x9c, 0x32, 0xb1, 0xfd,
+             0x86, 0x62, 0x05, 0x16, 0x5f, 0x49, 0xb8, 0x00],
+            // u = 39382357235489614581723060781553021112529911719440698176882885853963445705823
+            [0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24,
+             0xb1, 0xd0, 0xb1, 0x55, 0x9c, 0x83, 0xef, 0x5b,
+             0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c, 0x8e, 0x86,
+             0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57],
+            // u = p - 1 (twist torsion; twist has cofactor 4, also killed by clamped scalar)
+            [0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f],
+            // u = p (non-canonical representation of u = 0)
+            [0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f],
+            // u = p + 1 (non-canonical representation of u = 1)
+            [0xee, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f],
+        ];
+
+        let dk = X25519DecapsulationKey::from_bytes([9u8; 32]);
+        for (i, point) in small_order_points.iter().enumerate() {
+            let ct = X25519Ciphertext::from_bytes(*point);
+            assert!(
+                X25519Kem::decaps(&dk, &ct).is_err(),
+                "small-order point {} should be rejected", i
+            );
+        }
     }
 }
