@@ -46,9 +46,12 @@ impl core::fmt::Debug for Sas {
 ///
 /// The computation is:
 /// ```text
-/// hash = Hash("shortcake-sas-v1" || initiator_nonce || ct_bytes)
+/// hash = Hash("shortcake-sas-v1" || initiator_nonce || len(ct_bytes) || ct_bytes)
 /// sas = responder_nonce[0..5] XOR hash[0..5]
 /// ```
+///
+/// The length prefix on `ct_bytes` ensures unambiguous parsing for
+/// variable-length ciphertext types.
 pub fn compute_sas<H: Digest>(
     responder_nonce: &Nonce,
     initiator_nonce: &Nonce,
@@ -57,6 +60,7 @@ pub fn compute_sas<H: Digest>(
     let mut hasher = H::new();
     hasher.update(b"shortcake-sas-v1");
     hasher.update(initiator_nonce);
+    hasher.update((ct_bytes.len() as u64).to_be_bytes());
     hasher.update(ct_bytes);
     let hash = hasher.finalize();
 
@@ -69,6 +73,7 @@ pub fn compute_sas<H: Digest>(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "x25519-sha256")]
     use super::*;
 
     #[cfg(feature = "x25519-sha256")]

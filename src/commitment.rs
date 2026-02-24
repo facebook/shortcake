@@ -5,9 +5,6 @@
 // Apache License, Version 2.0 found in the LICENSE-APACHE file.
 
 //! Commitment scheme for the protocol.
-//!
-//! The commitment binds the initiator's encapsulation key and nonce,
-//! preventing the responder from adaptively choosing their response.
 
 use digest::{Digest, Output};
 use subtle::ConstantTimeEq;
@@ -17,10 +14,13 @@ use crate::Nonce;
 
 /// Compute a commitment over an encapsulation key and nonce.
 ///
-/// The commitment is `Hash("shortcake-commitment-v1" || ek_bytes || nonce)`.
+/// The commitment is `Hash("shortcake-commitment-v1" || len(ek_bytes) || ek_bytes || nonce)`,
+/// where `len(ek_bytes)` is encoded as a u64 in big-endian. The length prefix ensures
+/// unambiguous parsing for variable-length encapsulation keys.
 pub fn commit<H: Digest>(ek_bytes: &[u8], nonce: &Nonce) -> Output<H> {
     let mut hasher = H::new();
     hasher.update(b"shortcake-commitment-v1");
+    hasher.update((ek_bytes.len() as u64).to_be_bytes());
     hasher.update(ek_bytes);
     hasher.update(nonce);
     hasher.finalize()
@@ -44,6 +44,7 @@ pub fn open<H: Digest>(ek_bytes: &[u8], nonce: &Nonce, expected: &Output<H>) -> 
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "x25519-sha256")]
     use super::*;
 
     #[cfg(feature = "x25519-sha256")]

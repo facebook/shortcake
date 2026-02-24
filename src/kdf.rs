@@ -37,6 +37,7 @@ pub fn derive_key<H: Digest + BlockSizeUser + Clone>(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "x25519-sha256")]
     use super::*;
 
     #[cfg(feature = "x25519-sha256")]
