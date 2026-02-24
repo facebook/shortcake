@@ -23,9 +23,9 @@ use crate::errors::ShortcakeError;
 /// public key and a secret nonce.
 pub struct MessageOne<CS: CipherSuite> {
     /// The initiator's ephemeral public key.
-    pub public_key: GenericArray<u8, PublicKeyLen<CS>>,
+    pub(crate) public_key: GenericArray<u8, PublicKeyLen<CS>>,
     /// Hash commitment to the initiator's public key and nonce.
-    pub commitment: GenericArray<u8, HashOutputLen<CS>>,
+    pub(crate) commitment: GenericArray<u8, HashOutputLen<CS>>,
 }
 
 impl<CS: CipherSuite> MessageOne<CS> {
@@ -34,11 +34,38 @@ impl<CS: CipherSuite> MessageOne<CS> {
         PublicKeyLen::<CS>::USIZE + HashOutputLen::<CS>::USIZE
     }
 
+    /// Returns the initiator's ephemeral public key.
+    pub fn public_key(&self) -> &GenericArray<u8, PublicKeyLen<CS>> {
+        &self.public_key
+    }
+
+    /// Returns the hash commitment.
+    pub fn commitment(&self) -> &GenericArray<u8, HashOutputLen<CS>> {
+        &self.commitment
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `buf.len() < Self::size()`.
+    pub fn write_to(&self, buf: &mut [u8]) {
+        let pk_len = PublicKeyLen::<CS>::USIZE;
+        assert!(
+            buf.len() >= Self::size(),
+            "buffer too small: need {} bytes, got {}",
+            Self::size(),
+            buf.len(),
+        );
+        buf[..pk_len].copy_from_slice(&self.public_key);
+        buf[pk_len..Self::size()].copy_from_slice(&self.commitment);
+    }
+
     /// Serializes this message to a byte vector.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(Self::size());
-        bytes.extend_from_slice(&self.public_key);
-        bytes.extend_from_slice(&self.commitment);
+    #[cfg(feature = "alloc")]
+    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = alloc::vec![0u8; Self::size()];
+        self.write_to(&mut bytes);
         bytes
     }
 
@@ -91,9 +118,9 @@ impl<CS: CipherSuite> Eq for MessageOne<CS> {}
 /// Contains the responder's ephemeral public key and a random nonce.
 pub struct MessageTwo<CS: CipherSuite> {
     /// The responder's ephemeral public key.
-    pub public_key: GenericArray<u8, PublicKeyLen<CS>>,
+    pub(crate) public_key: GenericArray<u8, PublicKeyLen<CS>>,
     /// The responder's random nonce.
-    pub nonce: GenericArray<u8, HashOutputLen<CS>>,
+    pub(crate) nonce: GenericArray<u8, HashOutputLen<CS>>,
 }
 
 impl<CS: CipherSuite> MessageTwo<CS> {
@@ -102,11 +129,38 @@ impl<CS: CipherSuite> MessageTwo<CS> {
         PublicKeyLen::<CS>::USIZE + HashOutputLen::<CS>::USIZE
     }
 
+    /// Returns the responder's ephemeral public key.
+    pub fn public_key(&self) -> &GenericArray<u8, PublicKeyLen<CS>> {
+        &self.public_key
+    }
+
+    /// Returns the responder's random nonce.
+    pub fn nonce(&self) -> &GenericArray<u8, HashOutputLen<CS>> {
+        &self.nonce
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `buf.len() < Self::size()`.
+    pub fn write_to(&self, buf: &mut [u8]) {
+        let pk_len = PublicKeyLen::<CS>::USIZE;
+        assert!(
+            buf.len() >= Self::size(),
+            "buffer too small: need {} bytes, got {}",
+            Self::size(),
+            buf.len(),
+        );
+        buf[..pk_len].copy_from_slice(&self.public_key);
+        buf[pk_len..Self::size()].copy_from_slice(&self.nonce);
+    }
+
     /// Serializes this message to a byte vector.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(Self::size());
-        bytes.extend_from_slice(&self.public_key);
-        bytes.extend_from_slice(&self.nonce);
+    #[cfg(feature = "alloc")]
+    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = alloc::vec![0u8; Self::size()];
+        self.write_to(&mut bytes);
         bytes
     }
 
@@ -160,7 +214,7 @@ impl<CS: CipherSuite> Eq for MessageTwo<CS> {}
 /// verify the commitment from [`MessageOne`].
 pub struct MessageThree<CS: CipherSuite> {
     /// The initiator's random nonce.
-    pub nonce: GenericArray<u8, HashOutputLen<CS>>,
+    pub(crate) nonce: GenericArray<u8, HashOutputLen<CS>>,
     _marker: PhantomData<CS>,
 }
 
@@ -178,9 +232,32 @@ impl<CS: CipherSuite> MessageThree<CS> {
         HashOutputLen::<CS>::USIZE
     }
 
+    /// Returns the initiator's nonce.
+    pub fn nonce(&self) -> &GenericArray<u8, HashOutputLen<CS>> {
+        &self.nonce
+    }
+
+    /// Writes the serialized message into the provided buffer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `buf.len() < Self::size()`.
+    pub fn write_to(&self, buf: &mut [u8]) {
+        assert!(
+            buf.len() >= Self::size(),
+            "buffer too small: need {} bytes, got {}",
+            Self::size(),
+            buf.len(),
+        );
+        buf[..Self::size()].copy_from_slice(&self.nonce);
+    }
+
     /// Serializes this message to a byte vector.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.nonce.to_vec()
+    #[cfg(feature = "alloc")]
+    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = alloc::vec![0u8; Self::size()];
+        self.write_to(&mut bytes);
+        bytes
     }
 
     /// Deserializes a message from a byte slice.

@@ -79,8 +79,8 @@
 //! let responder_output = responder.finish(&msg3).unwrap();
 //!
 //! // Both parties now have the same SAS and shared secret
-//! assert_eq!(initiator_output.sas, responder_output.sas);
-//! assert_eq!(initiator_output.shared_secret, responder_output.shared_secret);
+//! assert_eq!(initiator_output.sas(), responder_output.sas());
+//! assert_eq!(initiator_output.shared_secret(), responder_output.shared_secret());
 //!
 //! // Users verify the SAS out-of-band (e.g., by comparing displayed codes).
 //! // Only use the shared secret after successful SAS verification!
@@ -88,19 +88,27 @@
 //!
 //! # Serialization
 //!
-//! All protocol messages support conversion to and from bytes via
-//! [`to_bytes()`](MessageOne::to_bytes) and
-//! [`from_bytes()`](MessageOne::from_bytes) methods, suitable for
-//! transmission over any transport.
+//! All protocol messages support deserialization from bytes via
+//! [`from_bytes()`](MessageOne::from_bytes). For serialization, use
+//! [`write_to()`](MessageOne::write_to) to write into a caller-provided
+//! buffer (always available), or [`to_bytes()`](MessageOne::to_bytes) to
+//! allocate a `Vec<u8>` (requires the `alloc` feature).
 //!
 //! # References
 //!
 //! - S. Pasini and S. Vaudenay, "An Optimal Non-Interactive Message
 //!   Authentication Protocol," CT-RSA 2006.
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(not(test), deny(unsafe_code))]
 #![warn(clippy::doc_markdown, missing_docs, rustdoc::all)]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(any(feature = "std", test))]
+extern crate std;
 
 mod ciphersuite;
 mod errors;
@@ -115,7 +123,7 @@ pub use ciphersuite::{CipherSuite, DefaultCipherSuite};
 pub use errors::ShortcakeError;
 pub use key_exchange::{KeyExchange, X25519};
 pub use messages::{MessageOne, MessageThree, MessageTwo};
-pub use protocol::{Initiator, Output, Responder, SAS_LENGTH};
+pub use protocol::{Initiator, Output, Responder, SHARED_SECRET_LENGTH};
 
 /// Re-export of `generic_array` for use in custom cipher suite implementations.
 pub use generic_array;

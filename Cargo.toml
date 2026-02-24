@@ -17,9 +17,14 @@ hmac = "0.12"
 rand_core = "0.6"
 sha2 = "0.10"
 subtle = "2"
-thiserror = "1"
-x25519-dalek = { version = "2", features = ["getrandom", "static_secrets"] }
+thiserror = { version = "2", default-features = false }
+x25519-dalek = { version = "2", features = ["getrandom"] }
 zeroize = { version = "1", features = ["derive"] }
+
+[features]
+default = ["std"]
+std = ["alloc", "thiserror/std"]
+alloc = []
 
 [dev-dependencies]
 hex = "0.4"

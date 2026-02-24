@@ -9,6 +9,7 @@
 //! Cipher suite trait and default implementation.
 
 use digest::{core_api::BlockSizeUser, Digest, OutputSizeUser};
+use generic_array::ArrayLength;
 
 use crate::key_exchange::KeyExchange;
 
@@ -22,12 +23,14 @@ use crate::key_exchange::KeyExchange;
 ///
 /// ```rust
 /// use shortcake::{CipherSuite, KeyExchange};
+/// use generic_array::typenum::U5;
 ///
 /// struct MyCipherSuite;
 ///
 /// impl CipherSuite for MyCipherSuite {
 ///     type KeyExchange = shortcake::X25519;
 ///     type Hash = sha2::Sha256;
+///     type SasLength = U5;
 /// }
 /// ```
 pub trait CipherSuite {
@@ -39,6 +42,13 @@ pub trait CipherSuite {
     /// Must implement [`Digest`], [`BlockSizeUser`] (required for HKDF via
     /// [`SimpleHmac`](hmac::SimpleHmac)), and [`Clone`].
     type Hash: Digest + BlockSizeUser + Clone;
+
+    /// The length of the short authentication string (SAS) in bytes.
+    ///
+    /// Must not exceed the hash output length. The default cipher suite uses
+    /// 5 bytes (40 bits), providing a 1-in-2^40 chance of a successful
+    /// man-in-the-middle attack per attempt.
+    type SasLength: ArrayLength<u8>;
 }
 
 /// The default cipher suite using X25519 key exchange and SHA-256.
@@ -49,6 +59,7 @@ pub struct DefaultCipherSuite;
 impl CipherSuite for DefaultCipherSuite {
     type KeyExchange = crate::key_exchange::X25519;
     type Hash = sha2::Sha256;
+    type SasLength = generic_array::typenum::U5;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,3 +78,6 @@ pub(crate) type HashOutputLen<CS> = <<CS as CipherSuite>::Hash as OutputSizeUser
 
 /// The secret key type for a given cipher suite.
 pub(crate) type KxSecretKey<CS> = <<CS as CipherSuite>::KeyExchange as KeyExchange>::SecretKey;
+
+/// The SAS length for a given cipher suite.
+pub(crate) type SasLen<CS> = <CS as CipherSuite>::SasLength;

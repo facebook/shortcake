@@ -18,6 +18,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --package shortcake
 
+  test-no-std:
+    name: Test (no_std)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --package shortcake --no-default-features
+
+  test-alloc:
+    name: Test (alloc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --package shortcake --no-default-features --features alloc
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
