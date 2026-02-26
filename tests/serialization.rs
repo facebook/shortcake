@@ -8,9 +8,7 @@
 
 #![cfg(feature = "x25519-sha256")]
 
-use shortcake::{
-    Kem, X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey, X25519Kem,
-};
+use shortcake::{Kem, X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey, X25519Kem};
 
 #[test]
 fn test_encapsulation_key_roundtrip() {
@@ -31,7 +29,10 @@ fn test_decapsulation_key_deterministic_from_bytes() {
     let known_bytes = [42u8; 32];
     let dk1 = X25519DecapsulationKey::from_bytes(known_bytes);
     let dk2 = X25519DecapsulationKey::from_bytes(known_bytes);
-    assert_eq!(dk1.encapsulation_key().to_bytes(), dk2.encapsulation_key().to_bytes());
+    assert_eq!(
+        dk1.encapsulation_key().to_bytes(),
+        dk2.encapsulation_key().to_bytes()
+    );
 }
 
 #[test]
