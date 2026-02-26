@@ -28,6 +28,15 @@ that bundles a KEM and hash function.
 shortcake = { version = "0.1", features = ["x25519-sha256"] }
 ```
 
+## Example
+
+See [`examples/protocol.rs`](examples/protocol.rs) for a full 3-move protocol
+demo. Run it with:
+
+```sh
+cargo run --example protocol --features x25519-sha256
+```
+
 ## Minimum Supported Rust Version
 
 Rust **1.56** or higher.

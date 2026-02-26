@@ -31,3 +31,7 @@ x25519-dalek = { version = "2.0", default-features = false, features = ["static_
 
 [dev-dependencies]
 rand = "0.8"
+
+[[example]]
+name = "protocol"
+required-features = ["x25519-sha256"]
