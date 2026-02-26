@@ -18,7 +18,7 @@
 
 use shortcake::{
     Initiator, Responder, X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey,
-    X25519Sha256,
+    X25519Sha256, DEFAULT_SAS_LEN,
 };
 
 fn main() {
@@ -85,13 +85,15 @@ fn main() {
 
     let initiator_sas = initiator_confirm.sas();
     let responder_sas = responder_confirm.sas();
-    println!("Initiator SAS: {:?}", initiator_sas);
-    println!("Responder SAS: {:?}", responder_sas);
-    assert_eq!(
-        initiator_sas.as_bytes(),
-        responder_sas.as_bytes(),
-        "SAS mismatch!"
-    );
+
+    // The library returns the full-length SAS. Truncate to the desired
+    // prefix length for display — DEFAULT_SAS_LEN (5 bytes / 40 bits)
+    // is a good default.
+    let i_sas = &initiator_sas.as_bytes()[..DEFAULT_SAS_LEN];
+    let r_sas = &responder_sas.as_bytes()[..DEFAULT_SAS_LEN];
+    println!("Initiator SAS (first {DEFAULT_SAS_LEN} bytes): {i_sas:02x?}");
+    println!("Responder SAS (first {DEFAULT_SAS_LEN} bytes): {r_sas:02x?}");
+    assert_eq!(i_sas, r_sas, "SAS mismatch!");
     println!("SAS values match — user would confirm out-of-band");
 
     // ── Key derivation ──────────────────────────────────────────────────

@@ -8,26 +8,44 @@
 
 //! Short Authenticated String (SAS) derivation.
 //!
-//! The SAS is a truncated value that both parties compute and compare
-//! out-of-band (e.g., by reading digits aloud) to authenticate the exchange.
+//! The SAS is a value that both parties compute and compare out-of-band
+//! (e.g., by reading digits aloud) to authenticate the exchange.
+//!
+//! The library computes the full-length SAS ([`SAS_MAX_LEN`] bytes) and
+//! returns it to the caller, who can truncate to any desired prefix length.
+//! [`DEFAULT_SAS_LEN`] (5 bytes / 40 bits) is a reasonable default for most
+//! applications.
 
 use digest::Digest;
 
 use crate::Nonce;
 
-/// The length of the SAS in bytes (40 bits).
-pub const SAS_LEN: usize = 5;
+/// The maximum length of the SAS in bytes, equal to the nonce size.
+pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
 
-/// A 40-bit Short Authenticated String.
+/// The default (recommended) SAS length in bytes (40 bits).
 ///
-/// The raw bytes can be encoded by the caller in any format
-/// (e.g., base32, decimal digits, emoji).
+/// This provides a 1-in-2^40 chance of a successful attack, which is
+/// the standard target for SAS-based protocols.
+pub const DEFAULT_SAS_LEN: usize = 5;
+
+/// A Short Authenticated String.
+///
+/// Contains the full [`SAS_MAX_LEN`]-byte SAS value. Callers should
+/// truncate to their desired length (see [`DEFAULT_SAS_LEN`]) when
+/// displaying or comparing out-of-band:
+///
+/// ```ignore
+/// let sas_bytes = &sas.as_bytes()[..DEFAULT_SAS_LEN];
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Sas(pub(crate) [u8; SAS_LEN]);
+pub struct Sas(pub(crate) [u8; SAS_MAX_LEN]);
 
 impl Sas {
-    /// Returns the raw SAS bytes.
-    pub fn as_bytes(&self) -> &[u8; SAS_LEN] {
+    /// Returns the full raw SAS bytes.
+    ///
+    /// Truncate to a prefix of the desired length before displaying.
+    pub fn as_bytes(&self) -> &[u8; SAS_MAX_LEN] {
         &self.0
     }
 }
@@ -49,7 +67,7 @@ impl core::fmt::Debug for Sas {
 /// The computation is:
 /// ```text
 /// hash = Hash("shortcake-sas-v1" || initiator_nonce || len(ct_bytes) || ct_bytes)
-/// sas = responder_nonce[0..5] XOR hash[0..5]
+/// sas = responder_nonce XOR hash[0..SAS_MAX_LEN]
 /// ```
 ///
 /// The length prefix on `ct_bytes` ensures unambiguous parsing for
@@ -66,12 +84,18 @@ pub fn compute_sas<H: Digest>(
     hasher.update(ct_bytes);
     let hash = hasher.finalize();
 
-    let mut sas = [0u8; SAS_LEN];
-    for i in 0..SAS_LEN {
+    let mut sas = [0u8; SAS_MAX_LEN];
+    for i in 0..SAS_MAX_LEN {
         sas[i] = responder_nonce[i] ^ hash[i];
     }
     Sas(sas)
 }
+
+// Ensure the SAS max length does not exceed the minimum expected hash output size.
+const _: () = assert!(
+    SAS_MAX_LEN <= 32,
+    "SAS_MAX_LEN must not exceed the minimum expected hash output size"
+);
 
 #[cfg(test)]
 mod tests {
