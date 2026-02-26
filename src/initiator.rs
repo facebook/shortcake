@@ -92,6 +92,18 @@ where
     fn drop(&mut self) {
         self.initiator_nonce.zeroize();
         self.dk.zeroize();
+
+        // Zero the public key field as well to ensure the entire struct
+        // is clean in memory after drop.
+        // SAFETY: ek is a repr(transparent) chain of newtypes over [u8; 32],
+        // and zeroing arbitrary bytes is always safe for such types.
+        unsafe {
+            core::ptr::write_bytes(
+                &mut self.ek as *mut _ as *mut u8,
+                0,
+                core::mem::size_of::<<CS::Kem as Kem>::EncapsulationKey>(),
+            );
+        }
     }
 }
 

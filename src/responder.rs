@@ -103,6 +103,34 @@ where
         if let Some(ref mut ss) = self.shared_secret {
             ss.zeroize();
         }
+
+        // Zero the remaining non-secret fields to ensure the entire struct
+        // is clean in memory after drop.
+        // SAFETY: these fields are repr(transparent) chains of newtypes over
+        // byte arrays, and zeroing arbitrary bytes is always safe for such types.
+        unsafe {
+            core::ptr::write_bytes(
+                &mut self.ek as *mut _ as *mut u8,
+                0,
+                core::mem::size_of::<<CS::Kem as Kem>::EncapsulationKey>(),
+            );
+            core::ptr::write_bytes(
+                &mut self.commitment as *mut _ as *mut u8,
+                0,
+                core::mem::size_of::<Output<CS::Hash>>(),
+            );
+            core::ptr::write_bytes(
+                &mut self.ct as *mut _ as *mut u8,
+                0,
+                core::mem::size_of::<<CS::Kem as Kem>::Ciphertext>(),
+            );
+            // Zero the Option discriminant and any residual shared_secret bytes.
+            core::ptr::write_bytes(
+                &mut self.shared_secret as *mut _ as *mut u8,
+                0,
+                core::mem::size_of::<Option<<CS::Kem as Kem>::SharedSecret>>(),
+            );
+        }
     }
 }
 
