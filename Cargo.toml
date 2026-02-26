@@ -2,11 +2,16 @@
 name = "shortcake"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.56"
 license = "MIT OR Apache-2.0"
 description = "A generic Rust implementation of the Pasini-Vaudenay 3-move SAS-based authenticated key agreement protocol"
 repository = "https://github.com/facebook/shortcake"
 keywords = ["cryptography", "sas", "key-agreement", "authentication"]
 categories = ["cryptography", "no-std"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []

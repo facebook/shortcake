@@ -20,7 +20,7 @@
 //! The protocol is generic over a [`CipherSuite`] that bundles a KEM and hash
 //! function. Enable the `x25519-sha256` feature for a ready-to-use ciphersuite.
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs, rust_2018_idioms)]
 
