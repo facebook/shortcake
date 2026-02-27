@@ -19,6 +19,7 @@ that bundles a KEM and hash function.
 ## Features
 
 - `x25519-sha256` — Ready-to-use ciphersuite using X25519 and SHA-256
+- `mlkem768-sha256` — Post-quantum ciphersuite using ML-KEM-768 (FIPS 203) and SHA-256
 - `std` — Enable `std::error::Error` impl for the error type (disabled by default for `no_std`)
 
 ## Installation

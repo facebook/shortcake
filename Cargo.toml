@@ -18,6 +18,7 @@ default = []
 std = []
 serde = ["dep:serde"]
 x25519-sha256 = ["dep:sha2", "dep:x25519-dalek"]
+mlkem768-sha256 = ["dep:sha2", "dep:ml-kem"]
 
 [dependencies]
 digest = { version = "0.10", default-features = false }
@@ -30,6 +31,9 @@ rand_core = { version = "0.6", default-features = false }
 # Optional dependencies for x25519-sha256 ciphersuite
 sha2 = { version = "0.10", default-features = false, optional = true }
 x25519-dalek = { version = "2.0", default-features = false, features = ["static_secrets"], optional = true }
+
+# Optional dependency for mlkem768-sha256 ciphersuite
+ml-kem = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -44,4 +48,3 @@ required-features = ["x25519-sha256"]
 [[bench]]
 name = "shortcake"
 harness = false
-required-features = ["x25519-sha256"]

@@ -15,6 +15,7 @@ jobs:
         feature:
           - --no-default-features
           - --no-default-features --features x25519-sha256
+          - --no-default-features --features mlkem768-sha256
           - --all-features
     name: test (${{ matrix.feature }})
     steps:
@@ -39,6 +40,7 @@ jobs:
         feature:
           - --no-default-features
           - --no-default-features --features x25519-sha256
+          - --no-default-features --features mlkem768-sha256
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -95,4 +97,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo bench --no-run --features x25519-sha256
+      - run: cargo bench --no-run --all-features

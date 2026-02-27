@@ -23,8 +23,8 @@
 //! # Setup
 //!
 //! The protocol is generic over a [`CipherSuite`] that bundles a KEM and hash
-//! function. Enable the `x25519-sha256` feature for a ready-to-use
-//! ciphersuite:
+//! function. Enable the `x25519-sha256` or `mlkem768-sha256` feature for a
+//! ready-to-use ciphersuite:
 //!
 //! ```toml
 //! [dependencies]
@@ -161,6 +161,8 @@
 //! # Features
 //!
 //! - `x25519-sha256` — Ready-to-use ciphersuite using X25519 and SHA-256.
+//! - `mlkem768-sha256` — Post-quantum ciphersuite using ML-KEM-768 (FIPS 203)
+//!   and SHA-256.
 //! - `std` — Enable `std::error::Error` impl for the error type (disabled
 //!   by default for `no_std`).
 
@@ -194,6 +196,16 @@ mod x25519;
 #[cfg_attr(docsrs, doc(cfg(feature = "x25519-sha256")))]
 pub use x25519::{
     X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey, X25519Kem, X25519Sha256,
+};
+
+#[cfg(feature = "mlkem768-sha256")]
+mod mlkem;
+
+#[cfg(feature = "mlkem768-sha256")]
+#[cfg_attr(docsrs, doc(cfg(feature = "mlkem768-sha256")))]
+pub use mlkem::{
+    MlKem768Ciphertext, MlKem768DecapsulationKey, MlKem768EncapsulationKey, MlKem768Kem,
+    MlKem768Sha256,
 };
 
 /// 32-byte nonce used in the protocol.
