@@ -26,7 +26,7 @@ hkdf = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 subtle = { version = "2.5", default-features = false }
 zeroize = { version = "1.7", default-features = false, features = ["derive"] }
-rand_core = { version = "0.6", default-features = false }
+rand_core = { version = "0.10", default-features = false }
 
 # Optional dependencies for x25519-sha256 ciphersuite
 sha2 = { version = "0.10", default-features = false, optional = true }
