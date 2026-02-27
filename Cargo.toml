@@ -39,7 +39,7 @@ ml-kem = { version = "0.2", default-features = false, optional = true }
 criterion = "0.5"
 hex = "0.4"
 rand = "0.8"
-rand_chacha = "0.3"
+rand_chacha = "0.10"
 
 [[example]]
 name = "protocol"
