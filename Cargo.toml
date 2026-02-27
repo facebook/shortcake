@@ -21,7 +21,7 @@ x25519-sha256 = ["dep:sha2", "dep:x25519-dalek"]
 mlkem768-sha256 = ["dep:sha2", "dep:ml-kem"]
 
 [dependencies]
-digest = { version = "0.10", default-features = false }
+digest = { version = "0.11", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 subtle = { version = "2.5", default-features = false }
