@@ -34,6 +34,7 @@ pub struct InitiatorFirstMessage<CS: CipherSuite> {
 }
 
 /// The third message sent by the Initiator (after receiving Responder's response).
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InitiatorThirdMessage {
     /// The Initiator's nonce, opening the commitment.
     pub initiator_nonce: Nonce,
@@ -87,33 +88,15 @@ pub struct InitiatorAwaitingResponse<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Drop for InitiatorAwaitingResponse<CS>
-where
-    <CS::Kem as Kem>::DecapsulationKey: Zeroize,
-{
+impl<CS: CipherSuite> Drop for InitiatorAwaitingResponse<CS> {
     fn drop(&mut self) {
         self.initiator_nonce.zeroize();
         self.dk.zeroize();
-
-        // Zero the public key field as well to ensure the entire struct
-        // is clean in memory after drop.
-        // SAFETY: ek is a repr(transparent) chain of newtypes over [u8; 32],
-        // and zeroing arbitrary bytes is always safe for such types.
-        unsafe {
-            core::ptr::write_bytes(
-                &mut self.ek as *mut _ as *mut u8,
-                0,
-                core::mem::size_of::<<CS::Kem as Kem>::EncapsulationKey>(),
-            );
-        }
+        self.ek.zeroize();
     }
 }
 
-impl<CS: CipherSuite> InitiatorAwaitingResponse<CS>
-where
-    <CS::Kem as Kem>::DecapsulationKey: Zeroize,
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> InitiatorAwaitingResponse<CS> {
     /// Handle the Responder's response message.
     ///
     /// This decapsulates the ciphertext to recover the shared secret,
@@ -168,10 +151,7 @@ pub struct InitiatorAwaitingSasConfirmation<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> InitiatorAwaitingSasConfirmation<CS>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> InitiatorAwaitingSasConfirmation<CS> {
     /// Get the SAS for display to the user.
     pub fn sas(&self) -> &Sas {
         &self.sas

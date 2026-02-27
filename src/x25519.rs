@@ -27,6 +27,7 @@ pub struct X25519Kem;
 
 /// X25519 shared secret (32 bytes).
 #[derive(Zeroize, ZeroizeOnDrop)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct X25519SharedSecret([u8; 32]);
 
 impl AsRef<[u8]> for X25519SharedSecret {
@@ -39,6 +40,7 @@ impl AsRef<[u8]> for X25519SharedSecret {
 ///
 /// Stores the raw 32-byte secret to enable proper zeroization.
 #[derive(Zeroize, ZeroizeOnDrop)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct X25519DecapsulationKey {
     bytes: [u8; 32],
 }
@@ -60,7 +62,7 @@ impl X25519DecapsulationKey {
     /// Get the corresponding encapsulation (public) key.
     pub fn encapsulation_key(&self) -> X25519EncapsulationKey {
         let secret = StaticSecret::from(self.bytes);
-        X25519EncapsulationKey(PublicKey::from(&secret))
+        X25519EncapsulationKey(PublicKey::from(&secret).to_bytes())
     }
 
     /// Get the internal static secret for DH operations.
@@ -70,46 +72,56 @@ impl X25519DecapsulationKey {
 }
 
 /// X25519 encapsulation (public) key.
-#[derive(Clone)]
-pub struct X25519EncapsulationKey(PublicKey);
+#[derive(Clone, Zeroize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct X25519EncapsulationKey([u8; 32]);
 
 impl X25519EncapsulationKey {
     /// Create from raw bytes.
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(PublicKey::from(bytes))
+        Self(bytes)
     }
 
     /// Get the raw bytes.
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        self.0
+    }
+
+    fn to_public_key(&self) -> PublicKey {
+        PublicKey::from(self.0)
     }
 }
 
 impl AsRef<[u8]> for X25519EncapsulationKey {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_bytes()
+        &self.0
     }
 }
 
 /// X25519 ciphertext (ephemeral public key).
-#[derive(Clone)]
-pub struct X25519Ciphertext(PublicKey);
+#[derive(Clone, Zeroize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct X25519Ciphertext([u8; 32]);
 
 impl X25519Ciphertext {
     /// Create from raw bytes.
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(PublicKey::from(bytes))
+        Self(bytes)
     }
 
     /// Get the raw bytes.
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        self.0
+    }
+
+    fn to_public_key(&self) -> PublicKey {
+        PublicKey::from(self.0)
     }
 }
 
 impl AsRef<[u8]> for X25519Ciphertext {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_bytes()
+        &self.0
     }
 }
 
@@ -139,7 +151,7 @@ impl Kem for X25519Kem {
         let ephemeral_public = PublicKey::from(&ephemeral_secret);
 
         // DH with recipient's public key
-        let shared = ephemeral_secret.diffie_hellman(&ek.0);
+        let shared = ephemeral_secret.diffie_hellman(&ek.to_public_key());
 
         // Reject low-order public keys (non-contributory shared secret).
         // REVIEW COMMENT: was_contributory() checks that the DH output is not all-zero.
@@ -152,7 +164,7 @@ impl Kem for X25519Kem {
         }
 
         Ok((
-            X25519Ciphertext(ephemeral_public),
+            X25519Ciphertext(ephemeral_public.to_bytes()),
             X25519SharedSecret(shared.to_bytes()),
         ))
     }
@@ -163,7 +175,7 @@ impl Kem for X25519Kem {
     ) -> Result<Self::SharedSecret, Self::Error> {
         // DH with the ciphertext (ephemeral public key)
         let secret = dk.to_static_secret();
-        let shared = secret.diffie_hellman(&ct.0);
+        let shared = secret.diffie_hellman(&ct.to_public_key());
 
         // Reject low-order ciphertexts (non-contributory shared secret).
         if !shared.was_contributory() {

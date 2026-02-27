@@ -16,19 +16,13 @@ jobs:
           - --no-default-features
           - --no-default-features --features x25519-sha256
           - --all-features
-        toolchain:
-          - stable
-    name: test (${{ matrix.feature }}, ${{ matrix.toolchain }})
+    name: test (${{ matrix.feature }})
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install ${{ matrix.toolchain }} toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          override: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Run cargo test
         run: cargo test ${{ matrix.feature }}
@@ -47,12 +41,9 @@ jobs:
           - --no-default-features --features x25519-sha256
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup target add ${{ matrix.target }}
+          targets: ${{ matrix.target }}
       - run: cargo build --verbose --target=${{ matrix.target }} ${{ matrix.feature }}
 
   clippy:
@@ -63,11 +54,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: clippy
 
       - name: Run cargo clippy
@@ -81,11 +69,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: rustfmt
 
       - name: Run cargo fmt
@@ -95,3 +80,19 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --document-private-items --all-features
+
+  msrv:
+    name: MSRV check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.65.0
+      - run: cargo check --all-features
+
+  bench:
+    name: bench compilation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo bench --no-run --features x25519-sha256

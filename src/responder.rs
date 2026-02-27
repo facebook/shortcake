@@ -38,10 +38,7 @@ pub struct Responder<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Responder<CS>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> Responder<CS> {
     /// Start the protocol as Responder upon receiving Initiator's first message.
     ///
     /// # Arguments
@@ -96,37 +93,17 @@ pub struct ResponderAwaitingNonce<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Drop for ResponderAwaitingNonce<CS>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> Drop for ResponderAwaitingNonce<CS> {
     fn drop(&mut self) {
         self.responder_nonce.zeroize();
+        self.ek.zeroize();
+        self.ct.zeroize();
+        self.commitment.zeroize();
         if let Some(ref mut ss) = self.shared_secret {
             ss.zeroize();
         }
-
-        // Zero the remaining non-secret fields to ensure the entire struct
-        // is clean in memory after drop.
-        // SAFETY: these fields are repr(transparent) chains of newtypes over
-        // byte arrays, and zeroing arbitrary bytes is always safe for such types.
+        // Zero the Option wrapper to clear discriminant and any residual bytes.
         unsafe {
-            core::ptr::write_bytes(
-                &mut self.ek as *mut _ as *mut u8,
-                0,
-                core::mem::size_of::<<CS::Kem as Kem>::EncapsulationKey>(),
-            );
-            core::ptr::write_bytes(
-                &mut self.commitment as *mut _ as *mut u8,
-                0,
-                core::mem::size_of::<Output<CS::Hash>>(),
-            );
-            core::ptr::write_bytes(
-                &mut self.ct as *mut _ as *mut u8,
-                0,
-                core::mem::size_of::<<CS::Kem as Kem>::Ciphertext>(),
-            );
-            // Zero the Option discriminant and any residual shared_secret bytes.
             core::ptr::write_bytes(
                 &mut self.shared_secret as *mut _ as *mut u8,
                 0,
@@ -136,10 +113,7 @@ where
     }
 }
 
-impl<CS: CipherSuite> ResponderAwaitingNonce<CS>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> ResponderAwaitingNonce<CS> {
     /// Handle the Initiator's third message containing their nonce.
     ///
     /// This verifies the commitment and computes the SAS.
@@ -186,10 +160,7 @@ pub struct ResponderAwaitingSasConfirmation<CS: CipherSuite> {
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> ResponderAwaitingSasConfirmation<CS>
-where
-    <CS::Kem as Kem>::SharedSecret: Zeroize,
-{
+impl<CS: CipherSuite> ResponderAwaitingSasConfirmation<CS> {
     /// Get the SAS for display to the user.
     pub fn sas(&self) -> &Sas {
         &self.sas

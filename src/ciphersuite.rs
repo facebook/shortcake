@@ -24,13 +24,13 @@ use zeroize::Zeroize;
 /// KEM-specific and should be done by the caller before entering the protocol.
 pub trait Kem {
     /// The encapsulation (public) key type.
-    type EncapsulationKey: AsRef<[u8]> + Clone;
+    type EncapsulationKey: AsRef<[u8]> + Clone + Zeroize;
 
     /// The decapsulation (private) key type.
     type DecapsulationKey: Zeroize;
 
     /// The ciphertext type produced by encapsulation.
-    type Ciphertext: AsRef<[u8]> + Clone;
+    type Ciphertext: AsRef<[u8]> + Clone + Zeroize;
 
     /// The shared secret type.
     type SharedSecret: AsRef<[u8]> + Zeroize;

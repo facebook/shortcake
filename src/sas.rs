@@ -39,6 +39,7 @@ pub const DEFAULT_SAS_LEN: usize = 5;
 /// let sas_bytes = &sas.as_bytes()[..DEFAULT_SAS_LEN];
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sas(pub(crate) [u8; SAS_MAX_LEN]);
 
 impl Sas {

@@ -39,7 +39,7 @@ cargo run --example protocol --features x25519-sha256
 
 ## Minimum Supported Rust Version
 
-Rust **1.56** or higher.
+Rust **1.65** or higher.
 
 ## License
 
