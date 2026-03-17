@@ -1,56 +1,32 @@
-# shortcake
+# shortcake ![Build Status](https://github.com/facebook/shortcake/actions/workflows/main.yml/badge.svg)
 
-[![Rust CI](https://github.com/facebook/shortcake/actions/workflows/main.yml/badge.svg)](https://github.com/facebook/shortcake/actions/workflows/main.yml)
-[![crates.io](https://img.shields.io/crates/v/shortcake.svg)](https://crates.io/crates/shortcake)
-[![docs.rs](https://docs.rs/shortcake/badge.svg)](https://docs.rs/shortcake)
+An implementation of a **short** **c**ode **a**uthenticated **k**ey **e**xchange, based on the Pasini-Vaudenay 3-move SAS-based authenticated key agreement protocol and with a customizable key exchange.
 
-A generic, `#![no_std]`-compatible Rust implementation of the
-Pasini-Vaudenay 3-move SAS-based authenticated key agreement protocol.
+⚠️ **Warning**: This implementation has not been audited. Use at your own risk!
 
-## Overview
+Documentation
+-------------
 
-This crate implements a short authenticated strings (SAS) protocol for
-establishing a shared secret between two parties (Initiator and Responder)
-with human verification of a short code.
+The API can be found [here](https://docs.rs/shortcake/) along with an example for usage.
 
-The protocol is generic over a [`CipherSuite`](https://docs.rs/shortcake/latest/shortcake/trait.CipherSuite.html)
-that bundles a KEM and hash function.
+Installation
+------------
 
-## Features
+Add the following line to the dependencies of your `Cargo.toml`:
 
-- `x25519-sha256` — Ready-to-use ciphersuite using X25519 and SHA-256
-- `mlkem768-sha256` — Post-quantum ciphersuite using ML-KEM-768 (FIPS 203) and SHA-256
-- `std` — Enable `std::error::Error` impl for the error type (disabled by default for `no_std`)
-
-## Installation
-
-```toml
-[dependencies]
-shortcake = { version = "0.1", features = ["x25519-sha256"] }
+```
+shortcake = "0.1"
 ```
 
-## Example
+Contributors
+------------
 
-See [`examples/protocol.rs`](examples/protocol.rs) for a full 3-move protocol
-demo. Run it with:
+The authors of this code are Kevin Lewi ([@kevinlewi](https://github.com/kevinlewi)) and Spencer Peters ([@spencerpeters](https://github.com/spencerpeters)).
+To learn more about contributing to this project, [see this document](./CONTRIBUTING.md).
 
-```sh
-cargo run --example protocol --features x25519-sha256
-```
+License
+-------
 
-## Minimum Supported Rust Version
-
-Rust **1.85** or higher.
-
-## License
-
-This project is licensed under either of
-
-- [Apache License, Version 2.0](LICENSE-APACHE)
-- [MIT License](LICENSE-MIT)
-
-at your option.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+This project is dual-licensed under either the [MIT license](https://github.com/facebook/shortcake/blob/main/LICENSE-MIT)
+or the [Apache License, Version 2.0](https://github.com/facebook/shortcake/blob/main/LICENSE-APACHE).
+You may select, at your option, one of the above-listed licenses.
