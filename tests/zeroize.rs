@@ -13,10 +13,7 @@
 use core::mem::ManuallyDrop;
 use core::ptr;
 
-use shortcake::{
-    Initiator, InitiatorAwaitingResponse, Kem, Responder, ResponderAwaitingNonce,
-    X25519DecapsulationKey, X25519Kem, X25519Sha256,
-};
+use shortcake::{Initiator, Kem, Responder, X25519DecapsulationKey, X25519Kem, X25519Sha256};
 
 #[test]
 fn test_decapsulation_key_zeroize_on_drop() {
@@ -75,19 +72,17 @@ fn test_shared_secret_zeroize_on_drop() {
 }
 
 #[test]
-fn test_initiator_awaiting_response_zeroize_on_drop() {
+fn test_initiator_zeroize_on_drop() {
     let mut rng = rand::thread_rng();
 
-    // Run the protocol to create an InitiatorAwaitingResponse state
-    let dk = X25519DecapsulationKey::generate(&mut rng);
-    let ek = dk.encapsulation_key();
-    let (state, _msg) = Initiator::<X25519Sha256>::start(&mut rng, ek, dk);
+    // Run the protocol to create an Initiator state
+    let (state, _msg) = Initiator::<X25519Sha256>::start(&mut rng);
     let mut state = ManuallyDrop::new(state);
 
-    let size = core::mem::size_of::<InitiatorAwaitingResponse<X25519Sha256>>();
+    let size = core::mem::size_of::<Initiator<X25519Sha256>>();
 
     // Verify the struct memory is not all-zero before drop
-    let raw_ptr = &*state as *const InitiatorAwaitingResponse<X25519Sha256> as *const u8;
+    let raw_ptr = &*state as *const Initiator<X25519Sha256> as *const u8;
     let bytes_before: Vec<u8> = (0..size)
         .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
         .collect();
@@ -106,27 +101,24 @@ fn test_initiator_awaiting_response_zeroize_on_drop() {
         .collect();
     assert!(
         bytes_after.iter().all(|&b| b == 0),
-        "all bytes of InitiatorAwaitingResponse should be zeroed after drop"
+        "all bytes of Initiator should be zeroed after drop"
     );
 }
 
 #[test]
-fn test_responder_awaiting_nonce_zeroize_on_drop() {
+fn test_responder_zeroize_on_drop() {
     let mut rng = rand::thread_rng();
 
-    // Run the protocol to create a ResponderAwaitingNonce state
-    let dk = X25519DecapsulationKey::generate(&mut rng);
-    let ek = dk.encapsulation_key();
-    let (_initiator_state, first_msg) = Initiator::<X25519Sha256>::start(&mut rng, ek, dk);
+    // Run the protocol to create a Responder state
+    let (_initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
 
-    let (state, _resp_msg) =
-        Responder::<X25519Sha256>::start(&mut rng, first_msg.ek, first_msg.commitment).unwrap();
+    let (state, _msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1).unwrap();
     let mut state = ManuallyDrop::new(state);
 
-    let size = core::mem::size_of::<ResponderAwaitingNonce<X25519Sha256>>();
+    let size = core::mem::size_of::<Responder<X25519Sha256>>();
 
     // Verify the struct memory is not all-zero before drop
-    let raw_ptr = &*state as *const ResponderAwaitingNonce<X25519Sha256> as *const u8;
+    let raw_ptr = &*state as *const Responder<X25519Sha256> as *const u8;
     let bytes_before: Vec<u8> = (0..size)
         .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
         .collect();
@@ -145,6 +137,6 @@ fn test_responder_awaiting_nonce_zeroize_on_drop() {
         .collect();
     assert!(
         bytes_after.iter().all(|&b| b == 0),
-        "all bytes of ResponderAwaitingNonce should be zeroed after drop"
+        "all bytes of Responder should be zeroed after drop"
     );
 }

@@ -15,80 +15,135 @@ use core::marker::PhantomData;
 
 use digest::Output;
 use rand_core::CryptoRngCore;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
-use crate::kdf;
-use crate::sas::{compute_sas, Sas};
+use crate::responder::MessageTwo;
+use crate::sas::compute_sas;
+use crate::verification::VerificationCode;
 use crate::Nonce;
 
-/// The first message sent by the Initiator.
+/// The first protocol message (Initiator -> Responder).
 #[derive(Clone)]
-pub struct InitiatorFirstMessage<CS: CipherSuite> {
+pub struct MessageOne<CS: CipherSuite> {
     /// The Initiator's encapsulation (public) key.
-    pub ek: <CS::Kem as Kem>::EncapsulationKey,
+    pub(crate) ek: <CS::Kem as Kem>::EncapsulationKey,
     /// Commitment to the encapsulation key and nonce.
-    pub commitment: Output<CS::Hash>,
+    pub(crate) commitment: Output<CS::Hash>,
 }
 
-/// The third message sent by the Initiator (after receiving Responder's response).
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InitiatorThirdMessage {
-    /// The Initiator's nonce, opening the commitment.
-    pub initiator_nonce: Nonce,
-}
-
-/// Entry point for the Initiator protocol.
-pub struct Initiator<CS: CipherSuite> {
-    _marker: PhantomData<CS>,
-}
-
-impl<CS: CipherSuite> Initiator<CS> {
-    /// Start the protocol as Initiator.
-    ///
-    /// # Arguments
-    ///
-    /// * `rng` - A cryptographically secure random number generator.
-    /// * `ek` - The Initiator's encapsulation (public) key.
-    /// * `dk` - The Initiator's decapsulation (private) key.
-    ///
-    /// # Returns
-    ///
-    /// A tuple of (next_state, first_message) to send to the Responder.
-    pub fn start(
-        rng: &mut impl CryptoRngCore,
-        ek: <CS::Kem as Kem>::EncapsulationKey,
-        dk: <CS::Kem as Kem>::DecapsulationKey,
-    ) -> (InitiatorAwaitingResponse<CS>, InitiatorFirstMessage<CS>) {
-        let mut initiator_nonce = [0u8; 32];
-        rng.fill_bytes(&mut initiator_nonce);
-
-        let commitment = commitment::commit::<CS::Hash>(ek.as_ref(), &initiator_nonce);
-
-        let state = InitiatorAwaitingResponse {
-            dk,
-            ek: ek.clone(),
-            initiator_nonce,
-            _marker: PhantomData,
-        };
-
-        let message = InitiatorFirstMessage { ek, commitment };
-
-        (state, message)
+#[cfg(feature = "serde")]
+impl<CS: CipherSuite> serde::Serialize for MessageOne<CS>
+where
+    <CS::Kem as Kem>::EncapsulationKey: serde::Serialize,
+{
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("MessageOne", 2)?;
+        s.serialize_field("ek", &self.ek)?;
+        s.serialize_field("commitment", self.commitment.as_slice())?;
+        s.end()
     }
 }
 
-/// Initiator state after sending the first message, awaiting Responder's response.
-pub struct InitiatorAwaitingResponse<CS: CipherSuite> {
+#[cfg(feature = "serde")]
+impl<'de, CS: CipherSuite> serde::Deserialize<'de> for MessageOne<CS>
+where
+    <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use digest::OutputSizeUser;
+
+        struct MessageOneVisitor<CS>(core::marker::PhantomData<CS>);
+        impl<'de, CS: CipherSuite> serde::de::Visitor<'de> for MessageOneVisitor<CS>
+        where
+            <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
+        {
+            type Value = MessageOne<CS>;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "MessageOne struct with ek and commitment fields")
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Self::Value, A::Error> {
+                let ek = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let commitment_bytes: &[u8] = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let expected_len = <CS::Hash as OutputSizeUser>::output_size();
+                if commitment_bytes.len() != expected_len {
+                    return Err(serde::de::Error::invalid_length(
+                        commitment_bytes.len(),
+                        &self,
+                    ));
+                }
+                let commitment = Output::<CS::Hash>::clone_from_slice(commitment_bytes);
+                Ok(MessageOne { ek, commitment })
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut ek = None;
+                let mut commitment = None;
+                while let Some(key) = map.next_key::<&str>()? {
+                    match key {
+                        "ek" => {
+                            ek = Some(map.next_value()?);
+                        }
+                        "commitment" => {
+                            let bytes: &[u8] = map.next_value()?;
+                            let expected_len = <CS::Hash as OutputSizeUser>::output_size();
+                            if bytes.len() != expected_len {
+                                return Err(serde::de::Error::invalid_length(bytes.len(), &self));
+                            }
+                            commitment = Some(Output::<CS::Hash>::clone_from_slice(bytes));
+                        }
+                        _ => {
+                            let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                let ek = ek.ok_or_else(|| serde::de::Error::missing_field("ek"))?;
+                let commitment =
+                    commitment.ok_or_else(|| serde::de::Error::missing_field("commitment"))?;
+                Ok(MessageOne { ek, commitment })
+            }
+        }
+        deserializer.deserialize_struct(
+            "MessageOne",
+            &["ek", "commitment"],
+            MessageOneVisitor(core::marker::PhantomData),
+        )
+    }
+}
+
+/// The third protocol message (Initiator -> Responder).
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MessageThree {
+    /// The Initiator's nonce, opening the commitment.
+    pub(crate) initiator_nonce: Nonce,
+}
+
+/// Initiator state in the 3-move SAS protocol.
+///
+/// Created by [`Initiator::start`], which generates a KEM keypair internally
+/// and produces the first protocol message. Call [`Initiator::finish`] after
+/// receiving the responder's reply to obtain a [`VerificationCode`] and the
+/// final protocol message.
+pub struct Initiator<CS: CipherSuite> {
     dk: <CS::Kem as Kem>::DecapsulationKey,
     ek: <CS::Kem as Kem>::EncapsulationKey,
     initiator_nonce: Nonce,
     _marker: PhantomData<CS>,
 }
 
-impl<CS: CipherSuite> Drop for InitiatorAwaitingResponse<CS> {
+impl<CS: CipherSuite> Drop for Initiator<CS> {
     fn drop(&mut self) {
         self.initiator_nonce.zeroize();
         self.dk.zeroize();
@@ -96,81 +151,114 @@ impl<CS: CipherSuite> Drop for InitiatorAwaitingResponse<CS> {
     }
 }
 
-impl<CS: CipherSuite> InitiatorAwaitingResponse<CS> {
-    /// Handle the Responder's response message.
+impl<CS: CipherSuite> Initiator<CS> {
+    /// Start the protocol as Initiator.
+    ///
+    /// Generates a KEM keypair internally and produces the first protocol
+    /// message to send to the Responder.
+    ///
+    /// # Arguments
+    ///
+    /// * `rng` - A cryptographically secure random number generator.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (initiator_state, first_message).
+    pub fn start(rng: &mut impl CryptoRngCore) -> (Self, MessageOne<CS>) {
+        let (dk, ek) = CS::Kem::generate(rng);
+
+        let mut initiator_nonce = [0u8; 32];
+        rng.fill_bytes(&mut initiator_nonce);
+
+        let commitment = commitment::commit::<CS::Hash>(ek.as_ref(), &initiator_nonce);
+
+        let state = Self {
+            dk,
+            ek: ek.clone(),
+            initiator_nonce,
+            _marker: PhantomData,
+        };
+
+        let message = MessageOne { ek, commitment };
+
+        (state, message)
+    }
+
+    /// Process the responder's message and produce a verification code.
     ///
     /// This decapsulates the ciphertext to recover the shared secret,
     /// checks for reflection attacks, and computes the SAS.
     ///
     /// # Arguments
     ///
-    /// * `ct` - The ciphertext from the Responder.
-    /// * `responder_nonce` - The Responder's nonce.
+    /// * `msg2` - The second protocol message from the Responder.
     ///
     /// # Returns
     ///
-    /// A tuple of (next_state, third_message) on success.
-    pub fn handle_responder_response(
+    /// A tuple of (verification_code, third_message) on success.
+    pub fn finish(
         self,
-        ct: <CS::Kem as Kem>::Ciphertext,
-        responder_nonce: Nonce,
-    ) -> Result<(InitiatorAwaitingSasConfirmation<CS>, InitiatorThirdMessage), Error> {
+        msg2: MessageTwo<CS>,
+    ) -> Result<(VerificationCode<CS>, MessageThree), Error> {
         // Check for reflection attack: ek must not equal ct
-        if self.ek.as_ref() == ct.as_ref() {
+        if self.ek.as_ref() == msg2.ct.as_ref() {
             return Err(Error::ReflectionDetected);
         }
 
         // Decapsulate to get shared secret
         let shared_secret =
-            CS::Kem::decaps(&self.dk, &ct).map_err(|_| Error::DecapsulationFailed)?;
+            CS::Kem::decaps(&self.dk, &msg2.ct).map_err(|_| Error::DecapsulationFailed)?;
 
         // Compute SAS
-        let sas = compute_sas::<CS::Hash>(&responder_nonce, &self.initiator_nonce, ct.as_ref());
+        let sas = compute_sas::<CS::Hash>(
+            &msg2.responder_nonce,
+            &self.initiator_nonce,
+            msg2.ct.as_ref(),
+        );
 
-        let next_state = InitiatorAwaitingSasConfirmation {
+        let code = VerificationCode {
             sas,
-            shared_secret,
+            shared_secret: Some(shared_secret),
             _marker: PhantomData,
         };
 
-        let message = InitiatorThirdMessage {
+        let message = MessageThree {
             initiator_nonce: self.initiator_nonce,
         };
 
-        Ok((next_state, message))
+        Ok((code, message))
     }
 }
 
-/// Initiator state after computing the SAS, awaiting user confirmation.
-#[derive(ZeroizeOnDrop)]
-pub struct InitiatorAwaitingSasConfirmation<CS: CipherSuite> {
-    #[zeroize(skip)]
-    sas: Sas,
-    shared_secret: <CS::Kem as Kem>::SharedSecret,
-    #[zeroize(skip)]
-    _marker: PhantomData<CS>,
-}
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "x25519-sha256")]
+    use super::*;
 
-impl<CS: CipherSuite> InitiatorAwaitingSasConfirmation<CS> {
-    /// Get the SAS for display to the user.
-    pub fn sas(&self) -> &Sas {
-        &self.sas
-    }
+    #[cfg(feature = "x25519-sha256")]
+    #[test]
+    fn test_reflection_attack_detected() {
+        use crate::x25519::{X25519Ciphertext, X25519Sha256};
 
-    /// Finalize the protocol after user confirms SAS match.
-    ///
-    /// Derives the shared encryption key using HKDF.
-    ///
-    /// # Arguments
-    ///
-    /// * `salt` - Salt for HKDF (can be empty).
-    /// * `info` - Application-specific context info.
-    /// * `out` - Buffer to write the derived key into.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` on success.
-    pub fn finalize(self, salt: &[u8], info: &[u8], out: &mut [u8]) -> Result<(), Error> {
-        kdf::derive_key::<CS::Hash>(self.shared_secret.as_ref(), salt, info, out)
+        let mut rng = rand::thread_rng();
+
+        let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
+
+        // Simulate attacker reflecting the ek back as ciphertext
+        let reflected_ct = X25519Ciphertext::from_bytes(msg1.ek.as_ref().try_into().unwrap());
+        let fake_nonce = [0u8; 32];
+
+        let msg2 = MessageTwo {
+            ct: reflected_ct,
+            responder_nonce: fake_nonce,
+        };
+
+        let result = initiator.finish(msg2);
+
+        match result {
+            Err(Error::ReflectionDetected) => {} // Expected
+            Err(e) => panic!("Expected ReflectionDetected, got {:?}", e),
+            Ok(_) => panic!("Expected error, got Ok"),
+        }
     }
 }

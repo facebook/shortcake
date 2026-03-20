@@ -142,6 +142,12 @@ impl Kem for X25519Kem {
     type SharedSecret = X25519SharedSecret;
     type Error = X25519KemError;
 
+    fn generate(rng: &mut impl CryptoRngCore) -> (Self::DecapsulationKey, Self::EncapsulationKey) {
+        let dk = X25519DecapsulationKey::generate(rng);
+        let ek = dk.encapsulation_key();
+        (dk, ek)
+    }
+
     fn encaps(
         ek: &Self::EncapsulationKey,
         rng: &mut impl CryptoRngCore,

@@ -34,6 +34,7 @@ pub struct MlKem768Kem;
 
 /// ML-KEM-768 shared secret (32 bytes).
 #[derive(Zeroize, ZeroizeOnDrop)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MlKem768SharedSecret([u8; 32]);
 
 impl AsRef<[u8]> for MlKem768SharedSecret {
@@ -47,6 +48,31 @@ impl AsRef<[u8]> for MlKem768SharedSecret {
 /// Stores the serialized key bytes to enable proper zeroization.
 pub struct MlKem768DecapsulationKey {
     bytes: DkEncoded,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for MlKem768DecapsulationKey {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bytes(self.bytes.as_slice())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MlKem768DecapsulationKey {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct DkVisitor;
+        impl<'de> serde::de::Visitor<'de> for DkVisitor {
+            type Value = MlKem768DecapsulationKey;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "2400 bytes for ML-KEM-768 decapsulation key")
+            }
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+                MlKem768DecapsulationKey::from_bytes(v)
+                    .ok_or_else(|| E::invalid_length(v.len(), &self))
+            }
+        }
+        deserializer.deserialize_bytes(DkVisitor)
+    }
 }
 
 impl MlKem768DecapsulationKey {
@@ -100,6 +126,31 @@ impl Drop for MlKem768DecapsulationKey {
 #[derive(Clone)]
 pub struct MlKem768EncapsulationKey(EkEncoded);
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for MlKem768EncapsulationKey {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bytes(self.0.as_slice())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MlKem768EncapsulationKey {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EkVisitor;
+        impl<'de> serde::de::Visitor<'de> for EkVisitor {
+            type Value = MlKem768EncapsulationKey;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "1184 bytes for ML-KEM-768 encapsulation key")
+            }
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+                MlKem768EncapsulationKey::from_bytes(v)
+                    .ok_or_else(|| E::invalid_length(v.len(), &self))
+            }
+        }
+        deserializer.deserialize_bytes(EkVisitor)
+    }
+}
+
 impl MlKem768EncapsulationKey {
     /// Create from raw bytes.
     ///
@@ -138,6 +189,30 @@ impl Zeroize for MlKem768EncapsulationKey {
 /// ML-KEM-768 ciphertext (1088 bytes).
 #[derive(Clone)]
 pub struct MlKem768Ciphertext(CtEncoded);
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for MlKem768Ciphertext {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bytes(self.0.as_slice())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MlKem768Ciphertext {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct CtVisitor;
+        impl<'de> serde::de::Visitor<'de> for CtVisitor {
+            type Value = MlKem768Ciphertext;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "1088 bytes for ML-KEM-768 ciphertext")
+            }
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+                MlKem768Ciphertext::from_bytes(v).ok_or_else(|| E::invalid_length(v.len(), &self))
+            }
+        }
+        deserializer.deserialize_bytes(CtVisitor)
+    }
+}
 
 impl MlKem768Ciphertext {
     /// Create from raw bytes.
@@ -185,6 +260,12 @@ impl Kem for MlKem768Kem {
     type Ciphertext = MlKem768Ciphertext;
     type SharedSecret = MlKem768SharedSecret;
     type Error = MlKem768KemError;
+
+    fn generate(rng: &mut impl CryptoRngCore) -> (Self::DecapsulationKey, Self::EncapsulationKey) {
+        let dk = MlKem768DecapsulationKey::generate(rng);
+        let ek = dk.encapsulation_key();
+        (dk, ek)
+    }
 
     fn encaps(
         ek: &Self::EncapsulationKey,

@@ -10,116 +10,62 @@
 
 #![cfg(feature = "mlkem768-sha256")]
 
-use shortcake::{Error, Initiator, MlKem768DecapsulationKey, MlKem768Sha256, Responder};
+use shortcake::{Error, Initiator, MlKem768Sha256, Responder};
 
 /// Full round-trip test: Initiator <-> Responder exchange.
 #[test]
 fn test_full_protocol_roundtrip_mlkem() {
     let mut rng = rand::thread_rng();
 
-    // === Initiator: Generate KEM keypair ===
-    let initiator_dk = MlKem768DecapsulationKey::generate(&mut rng);
-    let initiator_ek = initiator_dk.encapsulation_key();
+    // Move 1: Initiator starts
+    let (initiator, msg1) = Initiator::<MlKem768Sha256>::start(&mut rng);
 
-    // === Initiator: Start protocol (Move 1) ===
-    let (initiator_state1, msg1) =
-        Initiator::<MlKem768Sha256>::start(&mut rng, initiator_ek, initiator_dk);
+    // Move 2: Responder processes msg1
+    let (responder, msg2) = Responder::<MlKem768Sha256>::start(&mut rng, msg1).unwrap();
 
-    // === Responder: Receive Move 1, send Move 2 ===
-    let (responder_state1, msg2) =
-        Responder::<MlKem768Sha256>::start(&mut rng, msg1.ek, msg1.commitment).unwrap();
+    // Move 3: Initiator processes msg2
+    let (i_code, msg3) = initiator.finish(msg2).unwrap();
 
-    // === Initiator: Receive Move 2, send Move 3 ===
-    let (initiator_state2, msg3) = initiator_state1
-        .handle_responder_response(msg2.ct, msg2.responder_nonce)
-        .unwrap();
+    // Responder processes msg3
+    let r_code = responder.finish(msg3).unwrap();
 
-    // === Responder: Receive Move 3, verify commitment ===
-    let responder_state2 = responder_state1
-        .handle_initiator_nonce(msg3.initiator_nonce)
-        .unwrap();
-
-    // === Both sides: SAS must match ===
+    // Verification codes must match
     assert_eq!(
-        initiator_state2.sas().as_bytes(),
-        responder_state2.sas().as_bytes(),
-        "SAS mismatch between Initiator and Responder"
+        i_code.as_bytes(),
+        r_code.as_bytes(),
+        "Verification codes must match between Initiator and Responder"
     );
 
-    // === Both sides: Derive keys, must match ===
-    let salt = b"test salt";
-    let info = b"test info";
+    // Verify and obtain shared secrets
+    let r_code_bytes = r_code.as_bytes().to_vec();
+    let i_code_bytes = i_code.as_bytes().to_vec();
 
-    let mut initiator_key = [0u8; 32];
-    let mut responder_key = [0u8; 32];
-
-    initiator_state2
-        .finalize(salt, info, &mut initiator_key)
-        .unwrap();
-    responder_state2
-        .finalize(salt, info, &mut responder_key)
-        .unwrap();
+    let i_secret = i_code.verify(&r_code_bytes).unwrap();
+    let r_secret = r_code.verify(&i_code_bytes).unwrap();
 
     assert_eq!(
-        initiator_key, responder_key,
-        "Derived keys must match between Initiator and Responder"
+        i_secret.as_ref(),
+        r_secret.as_ref(),
+        "Shared secrets must match between Initiator and Responder"
     );
 }
 
-/// Test that wrong nonce fails commitment verification.
+/// Test that verification with wrong code fails.
 #[test]
-fn test_wrong_nonce_fails_commitment_mlkem() {
+fn test_verification_code_mismatch_mlkem() {
     let mut rng = rand::thread_rng();
 
-    // Initiator generates keypair and starts
-    let initiator_dk = MlKem768DecapsulationKey::generate(&mut rng);
-    let initiator_ek = initiator_dk.encapsulation_key();
-    let (_initiator_state1, msg1) =
-        Initiator::<MlKem768Sha256>::start(&mut rng, initiator_ek, initiator_dk);
+    let (initiator, msg1) = Initiator::<MlKem768Sha256>::start(&mut rng);
+    let (responder, msg2) = Responder::<MlKem768Sha256>::start(&mut rng, msg1).unwrap();
+    let (i_code, msg3) = initiator.finish(msg2).unwrap();
+    let _r_code = responder.finish(msg3).unwrap();
 
-    // Responder receives and responds
-    let (responder_state1, _msg2) =
-        Responder::<MlKem768Sha256>::start(&mut rng, msg1.ek, msg1.commitment).unwrap();
-
-    // Attacker sends wrong nonce
-    let wrong_nonce = [0xffu8; 32];
-    let result = responder_state1.handle_initiator_nonce(wrong_nonce);
+    let wrong_bytes = [0xffu8; 5];
+    let result = i_code.verify(&wrong_bytes);
 
     match result {
-        Err(Error::CommitmentMismatch) => {} // Expected
-        Err(e) => panic!("Expected CommitmentMismatch, got {:?}", e),
+        Err(Error::VerificationFailed) => {} // Expected
+        Err(e) => panic!("Expected VerificationFailed, got {:?}", e),
         Ok(_) => panic!("Expected error, got Ok"),
     }
-}
-
-/// Test that different salt/info produces different keys.
-#[test]
-fn test_different_kdf_params_different_keys_mlkem() {
-    let mut rng = rand::thread_rng();
-
-    let initiator_dk = MlKem768DecapsulationKey::generate(&mut rng);
-    let initiator_ek = initiator_dk.encapsulation_key();
-
-    let (initiator_state1, msg1) =
-        Initiator::<MlKem768Sha256>::start(&mut rng, initiator_ek, initiator_dk);
-    let (responder_state1, msg2) =
-        Responder::<MlKem768Sha256>::start(&mut rng, msg1.ek, msg1.commitment).unwrap();
-    let (initiator_state2, msg3) = initiator_state1
-        .handle_responder_response(msg2.ct, msg2.responder_nonce)
-        .unwrap();
-    let responder_state2 = responder_state1
-        .handle_initiator_nonce(msg3.initiator_nonce)
-        .unwrap();
-
-    let mut key1 = [0u8; 32];
-    let mut key2 = [0u8; 32];
-
-    initiator_state2
-        .finalize(b"salt1", b"info", &mut key1)
-        .unwrap();
-    responder_state2
-        .finalize(b"salt2", b"info", &mut key2)
-        .unwrap();
-
-    assert_ne!(key1, key2, "Different salt should produce different keys");
 }

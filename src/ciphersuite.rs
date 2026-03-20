@@ -10,7 +10,6 @@
 
 use core::fmt::Debug;
 
-use digest::core_api::BlockSizeUser;
 use digest::Digest;
 use rand_core::CryptoRngCore;
 use zeroize::Zeroize;
@@ -19,9 +18,6 @@ use zeroize::Zeroize;
 ///
 /// This trait abstracts over KEM operations, allowing the protocol to be
 /// generic over different KEMs (e.g., X25519-as-KEM, ML-KEM, hybrid KEMs).
-///
-/// Key generation is intentionally excluded from this trait, as it is
-/// KEM-specific and should be done by the caller before entering the protocol.
 pub trait Kem {
     /// The encapsulation (public) key type.
     type EncapsulationKey: AsRef<[u8]> + Clone + Zeroize;
@@ -37,6 +33,17 @@ pub trait Kem {
 
     /// Error type for KEM operations.
     type Error: Debug;
+
+    /// Generate a new KEM keypair.
+    ///
+    /// # Arguments
+    ///
+    /// * `rng` - A cryptographically secure random number generator.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (decapsulation_key, encapsulation_key).
+    fn generate(rng: &mut impl CryptoRngCore) -> (Self::DecapsulationKey, Self::EncapsulationKey);
 
     /// Encapsulate to produce a ciphertext and shared secret.
     ///
@@ -75,5 +82,5 @@ pub trait CipherSuite {
     type Kem: Kem;
 
     /// The hash function used for commitments and SAS derivation.
-    type Hash: Digest + BlockSizeUser + Clone;
+    type Hash: Digest + Clone;
 }
