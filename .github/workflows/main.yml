@@ -19,7 +19,7 @@ jobs:
     name: test (${{ matrix.feature }})
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -40,7 +40,7 @@ jobs:
           - --no-default-features
           - --no-default-features --features xwing
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -85,7 +85,7 @@ jobs:
     name: MSRV check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@1.85.0
       - run: cargo check --all-features
 
@@ -93,6 +93,6 @@ jobs:
     name: bench compilation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo bench --no-run --all-features
