@@ -8,20 +8,25 @@
 
 //! Integration tests for the full protocol flow.
 
-#![cfg(feature = "x25519-sha256")]
+#![cfg(feature = "xwing")]
 
-use shortcake::{Error, Initiator, Responder, X25519Sha256};
+use rand_core::UnwrapErr;
+use shortcake::{Error, Initiator, Responder, XWingSha3};
+
+fn test_rng() -> UnwrapErr<getrandom::SysRng> {
+    UnwrapErr(getrandom::SysRng)
+}
 
 /// Full round-trip test: Initiator <-> Responder exchange.
 #[test]
 fn test_full_protocol_roundtrip() {
-    let mut rng = rand::thread_rng();
+    let mut rng = test_rng();
 
     // Move 1: Initiator starts
-    let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
+    let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
 
     // Move 2: Responder processes msg1
-    let (responder, msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1).unwrap();
+    let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
 
     // Move 3: Initiator processes msg2
     let (i_code, msg3) = initiator.finish(msg2).unwrap();
@@ -53,10 +58,10 @@ fn test_full_protocol_roundtrip() {
 /// Test that verification with wrong code fails.
 #[test]
 fn test_verification_code_mismatch() {
-    let mut rng = rand::thread_rng();
+    let mut rng = test_rng();
 
-    let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
-    let (responder, msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1).unwrap();
+    let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
+    let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
     let (i_code, msg3) = initiator.finish(msg2).unwrap();
     let _r_code = responder.finish(msg3).unwrap();
 
@@ -74,10 +79,10 @@ fn test_verification_code_mismatch() {
 /// Test that verification with wrong length fails.
 #[test]
 fn test_verification_wrong_length() {
-    let mut rng = rand::thread_rng();
+    let mut rng = test_rng();
 
-    let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
-    let (responder, msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1).unwrap();
+    let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
+    let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
     let (i_code, msg3) = initiator.finish(msg2).unwrap();
     let _r_code = responder.finish(msg3).unwrap();
 

@@ -23,15 +23,15 @@
 //! # Setup
 //!
 //! The protocol is generic over a [`CipherSuite`] that bundles a KEM and hash
-//! function. Enable the `x25519-sha256` or `mlkem768-sha256` feature for a
-//! ready-to-use ciphersuite:
+//! function. Enable the `xwing` feature for a ready-to-use ciphersuite using
+//! the X-Wing hybrid KEM (X25519 + ML-KEM-768) and SHA3-256:
 //!
 //! ```toml
 //! [dependencies]
-//! shortcake = { version = "0.1", features = ["x25519-sha256"] }
+//! shortcake = { version = "0.2", features = ["xwing"] }
 //! ```
 //!
-//! We will use [`X25519Sha256`] in the examples below.
+//! We will use [`XWingSha3`] in the examples below.
 //!
 //! See [`examples/protocol.rs`](https://github.com/facebook/shortcake/blob/main/examples/protocol.rs)
 //! for a full working example.
@@ -49,11 +49,10 @@
 //! and produces a [`MessageOne`] to send to the Responder.
 //!
 //! ```ignore
-//! use rand::rngs::OsRng;
-//! use shortcake::{Initiator, X25519Sha256};
+//! use shortcake::{Initiator, XWingSha3};
 //!
-//! let mut rng = OsRng;
-//! let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
+//! let mut rng = /* your CryptoRng */;
+//! let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
 //! // Send msg1 to the Responder.
 //! ```
 //!
@@ -63,9 +62,9 @@
 //! nonce, and produces a [`MessageTwo`] to send back.
 //!
 //! ```ignore
-//! use shortcake::{Responder, X25519Sha256};
+//! use shortcake::{Responder, XWingSha3};
 //!
-//! let (responder, msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1)
+//! let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1)
 //!     .expect("Responder failed to start");
 //! // Send msg2 to the Initiator.
 //! ```
@@ -105,9 +104,8 @@
 //!
 //! # Features
 //!
-//! - `x25519-sha256` — Ready-to-use ciphersuite using X25519 and SHA-256.
-//! - `mlkem768-sha256` — Post-quantum ciphersuite using ML-KEM-768 (FIPS 203)
-//!   and SHA-256.
+//! - `xwing` — Ready-to-use ciphersuite using X-Wing (X25519 + ML-KEM-768)
+//!   and SHA3-256, providing both classical and post-quantum security.
 //! - `std` — Enable `std::error::Error` impl for the error type (disabled
 //!   by default for `no_std`).
 
@@ -129,23 +127,14 @@ pub use initiator::{Initiator, MessageOne, MessageThree};
 pub use responder::{MessageTwo, Responder};
 pub use verification::VerificationCode;
 
-#[cfg(feature = "x25519-sha256")]
-mod x25519;
+#[cfg(feature = "xwing")]
+mod xwing;
 
-#[cfg(feature = "x25519-sha256")]
-#[cfg_attr(docsrs, doc(cfg(feature = "x25519-sha256")))]
-pub use x25519::{
-    X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey, X25519Kem, X25519Sha256,
-};
-
-#[cfg(feature = "mlkem768-sha256")]
-mod mlkem;
-
-#[cfg(feature = "mlkem768-sha256")]
-#[cfg_attr(docsrs, doc(cfg(feature = "mlkem768-sha256")))]
-pub use mlkem::{
-    MlKem768Ciphertext, MlKem768DecapsulationKey, MlKem768EncapsulationKey, MlKem768Kem,
-    MlKem768Sha256,
+#[cfg(feature = "xwing")]
+#[cfg_attr(docsrs, doc(cfg(feature = "xwing")))]
+pub use xwing::{
+    XWingCiphertext, XWingDecapsulationKey, XWingEncapsulationKey, XWingKem, XWingKemError,
+    XWingSha3, XWingSharedSecret,
 };
 
 /// 32-byte nonce used in the protocol.

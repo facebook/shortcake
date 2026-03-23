@@ -20,6 +20,9 @@ use digest::Digest;
 
 use crate::Nonce;
 
+// Workaround: `Output<H>` is `Array<u8, N>` from hybrid-array, and indexing
+// via Deref to `[u8]` works for reading hash output bytes.
+
 /// The maximum length of the SAS in bytes, equal to the nonce size.
 pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
 
@@ -100,13 +103,13 @@ const _: () = assert!(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     use super::*;
 
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     #[test]
     fn test_sas_deterministic() {
-        use sha2::Sha256;
+        use sha3::Sha3_256 as Sha256;
 
         let responder_nonce = [1u8; 32];
         let initiator_nonce = [2u8; 32];
@@ -118,10 +121,10 @@ mod tests {
         assert_eq!(sas1, sas2);
     }
 
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     #[test]
     fn test_sas_changes_with_inputs() {
-        use sha2::Sha256;
+        use sha3::Sha3_256 as Sha256;
 
         let responder_nonce = [1u8; 32];
         let initiator_nonce = [2u8; 32];

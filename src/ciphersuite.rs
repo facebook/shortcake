@@ -11,7 +11,7 @@
 use core::fmt::Debug;
 
 use digest::Digest;
-use rand_core::CryptoRngCore;
+use rand_core::CryptoRng;
 use zeroize::Zeroize;
 
 /// A Key Encapsulation Mechanism (KEM).
@@ -43,7 +43,7 @@ pub trait Kem {
     /// # Returns
     ///
     /// A tuple of (decapsulation_key, encapsulation_key).
-    fn generate(rng: &mut impl CryptoRngCore) -> (Self::DecapsulationKey, Self::EncapsulationKey);
+    fn generate(rng: &mut impl CryptoRng) -> (Self::DecapsulationKey, Self::EncapsulationKey);
 
     /// Encapsulate to produce a ciphertext and shared secret.
     ///
@@ -57,7 +57,7 @@ pub trait Kem {
     /// A tuple of (ciphertext, shared_secret) on success.
     fn encaps(
         ek: &Self::EncapsulationKey,
-        rng: &mut impl CryptoRngCore,
+        rng: &mut impl CryptoRng,
     ) -> Result<(Self::Ciphertext, Self::SharedSecret), Self::Error>;
 
     /// Decapsulate a ciphertext to recover the shared secret.

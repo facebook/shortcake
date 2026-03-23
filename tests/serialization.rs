@@ -6,105 +6,84 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
-//! Serialization round-trip tests for X25519 types.
+//! Serialization round-trip tests for X-Wing types.
 
-#![cfg(feature = "x25519-sha256")]
+#![cfg(feature = "xwing")]
 
-use shortcake::{Kem, X25519Ciphertext, X25519DecapsulationKey, X25519EncapsulationKey, X25519Kem};
+use rand_core::UnwrapErr;
+use shortcake::{Kem, XWingCiphertext, XWingDecapsulationKey, XWingEncapsulationKey, XWingKem};
 
-#[test]
-fn test_encapsulation_key_roundtrip() {
-    let mut rng = rand::thread_rng();
-    let dk = X25519DecapsulationKey::generate(&mut rng);
-    let ek = dk.encapsulation_key();
-
-    let bytes = ek.to_bytes();
-    let ek2 = X25519EncapsulationKey::from_bytes(bytes);
-
-    assert_eq!(ek.to_bytes(), ek2.to_bytes());
+fn test_rng() -> UnwrapErr<getrandom::SysRng> {
+    UnwrapErr(getrandom::SysRng)
 }
 
 #[test]
-fn test_decapsulation_key_deterministic_from_bytes() {
-    // Verify that constructing a decapsulation key from the same bytes
-    // deterministically produces the same encapsulation (public) key.
-    let known_bytes = [42u8; 32];
-    let dk1 = X25519DecapsulationKey::from_bytes(known_bytes);
-    let dk2 = X25519DecapsulationKey::from_bytes(known_bytes);
+fn test_encapsulation_key_roundtrip() {
+    let mut rng = test_rng();
+    let (_dk, ek) = XWingKem::generate(&mut rng);
+
+    let bytes = ek.as_bytes();
+    let ek2 = XWingEncapsulationKey::from_bytes(bytes).unwrap();
+
+    assert_eq!(ek.as_ref(), ek2.as_ref());
+}
+
+#[test]
+fn test_decapsulation_key_deterministic_from_seed() {
+    let seed = [42u8; 32];
+    let dk1 = XWingDecapsulationKey::from_seed(seed);
+    let dk2 = XWingDecapsulationKey::from_seed(seed);
     assert_eq!(
-        dk1.encapsulation_key().to_bytes(),
-        dk2.encapsulation_key().to_bytes()
+        dk1.encapsulation_key().as_ref(),
+        dk2.encapsulation_key().as_ref()
     );
 }
 
 #[test]
 fn test_ciphertext_roundtrip() {
-    let bytes = [7u8; 32];
-    let ct = X25519Ciphertext::from_bytes(bytes);
-    let ct_bytes = ct.to_bytes();
-    assert_eq!(bytes, ct_bytes);
+    let mut rng = test_rng();
+    let (dk, ek) = XWingKem::generate(&mut rng);
 
-    let ct2 = X25519Ciphertext::from_bytes(ct_bytes);
-    assert_eq!(ct.to_bytes(), ct2.to_bytes());
+    let (ct, ss1) = XWingKem::encaps(&ek, &mut rng).unwrap();
+
+    let ct_bytes = ct.as_bytes();
+    let ct2 = XWingCiphertext::from_bytes(ct_bytes).unwrap();
+
+    let ss2 = XWingKem::decaps(&dk, &ct2).unwrap();
+    assert_eq!(ss1.as_ref(), ss2.as_ref());
 }
 
 #[test]
 fn test_encapsulation_key_as_ref() {
-    let ek = X25519EncapsulationKey::from_bytes([5u8; 32]);
+    let mut rng = test_rng();
+    let (_dk, ek) = XWingKem::generate(&mut rng);
+
     let as_ref_bytes: &[u8] = ek.as_ref();
-    assert_eq!(as_ref_bytes, &ek.to_bytes());
+    assert_eq!(as_ref_bytes.len(), 1216);
 }
 
 #[test]
 fn test_ciphertext_as_ref() {
-    let ct = X25519Ciphertext::from_bytes([9u8; 32]);
+    let mut rng = test_rng();
+    let (_dk, ek) = XWingKem::generate(&mut rng);
+
+    let (ct, _ss) = XWingKem::encaps(&ek, &mut rng).unwrap();
     let as_ref_bytes: &[u8] = ct.as_ref();
-    assert_eq!(as_ref_bytes, &ct.to_bytes());
+    assert_eq!(as_ref_bytes.len(), 1120);
 }
 
 #[test]
-fn test_encapsulation_key_zero_bytes_roundtrip() {
-    let bytes = [0u8; 32];
-    let ek = X25519EncapsulationKey::from_bytes(bytes);
-    assert_eq!(ek.to_bytes(), bytes);
-
-    let ek2 = X25519EncapsulationKey::from_bytes(ek.to_bytes());
-    assert_eq!(ek.to_bytes(), ek2.to_bytes());
-}
-
-#[test]
-fn test_encapsulation_key_all_ones_roundtrip() {
-    let bytes = [0xFFu8; 32];
-    let ek = X25519EncapsulationKey::from_bytes(bytes);
-    let roundtripped = X25519EncapsulationKey::from_bytes(ek.to_bytes());
-    assert_eq!(ek.to_bytes(), roundtripped.to_bytes());
-}
-
-#[test]
-fn test_ciphertext_zero_bytes_roundtrip() {
-    let bytes = [0u8; 32];
-    let ct = X25519Ciphertext::from_bytes(bytes);
-    assert_eq!(ct.to_bytes(), bytes);
-
-    let ct2 = X25519Ciphertext::from_bytes(ct.to_bytes());
-    assert_eq!(ct.to_bytes(), ct2.to_bytes());
-}
-
-#[test]
-fn test_ciphertext_all_ones_roundtrip() {
-    let bytes = [0xFFu8; 32];
-    let ct = X25519Ciphertext::from_bytes(bytes);
-    let roundtripped = X25519Ciphertext::from_bytes(ct.to_bytes());
-    assert_eq!(ct.to_bytes(), roundtripped.to_bytes());
+fn test_wrong_length_rejected() {
+    assert!(XWingEncapsulationKey::from_bytes(&[0u8; 32]).is_none());
+    assert!(XWingCiphertext::from_bytes(&[0u8; 32]).is_none());
 }
 
 #[test]
 fn test_shared_secret_as_ref() {
-    let mut rng = rand::thread_rng();
-    let dk = X25519DecapsulationKey::generate(&mut rng);
-    let ek = dk.encapsulation_key();
+    let mut rng = test_rng();
+    let (_dk, ek) = XWingKem::generate(&mut rng);
 
-    let (_ct, ss) = X25519Kem::encaps(&ek, &mut rng).unwrap();
+    let (_ct, ss) = XWingKem::encaps(&ek, &mut rng).unwrap();
 
     let ss_bytes = ss.as_ref();
     assert_eq!(ss_bytes.len(), 32, "shared secret should be 32 bytes");
@@ -116,25 +95,24 @@ fn test_shared_secret_as_ref() {
 
 #[test]
 fn test_kem_encaps_decaps_serialization_roundtrip() {
-    let mut rng = rand::thread_rng();
+    let mut rng = test_rng();
 
     // Generate keypair
-    let dk = X25519DecapsulationKey::generate(&mut rng);
-    let ek = dk.encapsulation_key();
+    let (dk, ek) = XWingKem::generate(&mut rng);
 
     // Serialize and deserialize the public key before encapsulating
-    let ek_bytes = ek.to_bytes();
-    let ek_restored = X25519EncapsulationKey::from_bytes(ek_bytes);
+    let ek_bytes = ek.as_bytes();
+    let ek_restored = XWingEncapsulationKey::from_bytes(ek_bytes).unwrap();
 
     // Encapsulate with the restored key
-    let (ct, ss1) = X25519Kem::encaps(&ek_restored, &mut rng).unwrap();
+    let (ct, ss1) = XWingKem::encaps(&ek_restored, &mut rng).unwrap();
 
     // Serialize and deserialize the ciphertext before decapsulating
-    let ct_bytes = ct.to_bytes();
-    let ct_restored = X25519Ciphertext::from_bytes(ct_bytes);
+    let ct_bytes = ct.as_bytes();
+    let ct_restored = XWingCiphertext::from_bytes(ct_bytes).unwrap();
 
     // Decapsulate with the restored ciphertext
-    let ss2 = X25519Kem::decaps(&dk, &ct_restored).unwrap();
+    let ss2 = XWingKem::decaps(&dk, &ct_restored).unwrap();
 
     assert_eq!(ss1.as_ref(), ss2.as_ref());
 }

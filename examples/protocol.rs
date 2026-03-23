@@ -6,24 +6,25 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
-//! Full 3-move SAS protocol demo using the X25519-SHA256 ciphersuite.
+//! Full 3-move SAS protocol demo using the X-Wing + SHA3-256 ciphersuite.
 //!
 //! Run with:
 //! ```sh
-//! cargo run --example protocol --features x25519-sha256
+//! cargo run --example protocol --features xwing
 //! ```
 
-use shortcake::{Initiator, Responder, X25519Sha256};
+use rand_core::UnwrapErr;
+use shortcake::{Initiator, Responder, XWingSha3};
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    let mut rng = UnwrapErr(getrandom::SysRng);
 
     // Move 1: Initiator starts
-    let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
+    let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
 
     // Move 2: Responder processes msg1
     let (responder, msg2) =
-        Responder::<X25519Sha256>::start(&mut rng, msg1).expect("Responder failed to start");
+        Responder::<XWingSha3>::start(&mut rng, msg1).expect("Responder failed to start");
 
     // Move 3: Initiator processes msg2
     let (i_code, msg3) = initiator.finish(msg2).expect("Initiator failed to finish");

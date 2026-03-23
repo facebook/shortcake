@@ -14,7 +14,7 @@
 use core::marker::PhantomData;
 
 use digest::Output;
-use rand_core::CryptoRngCore;
+use rand_core::CryptoRng;
 use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, Kem};
@@ -82,7 +82,8 @@ where
                         &self,
                     ));
                 }
-                let commitment = Output::<CS::Hash>::clone_from_slice(commitment_bytes);
+                let mut commitment = Output::<CS::Hash>::default();
+                commitment.copy_from_slice(commitment_bytes);
                 Ok(MessageOne { ek, commitment })
             }
             fn visit_map<A: serde::de::MapAccess<'de>>(
@@ -102,7 +103,9 @@ where
                             if bytes.len() != expected_len {
                                 return Err(serde::de::Error::invalid_length(bytes.len(), &self));
                             }
-                            commitment = Some(Output::<CS::Hash>::clone_from_slice(bytes));
+                            let mut c = Output::<CS::Hash>::default();
+                            c.copy_from_slice(bytes);
+                            commitment = Some(c);
                         }
                         _ => {
                             let _ = map.next_value::<serde::de::IgnoredAny>()?;
@@ -164,7 +167,7 @@ impl<CS: CipherSuite> Initiator<CS> {
     /// # Returns
     ///
     /// A tuple of (initiator_state, first_message).
-    pub fn start(rng: &mut impl CryptoRngCore) -> (Self, MessageOne<CS>) {
+    pub fn start(rng: &mut impl CryptoRng) -> (Self, MessageOne<CS>) {
         let (dk, ek) = CS::Kem::generate(rng);
 
         let mut initiator_nonce = [0u8; 32];
@@ -200,7 +203,9 @@ impl<CS: CipherSuite> Initiator<CS> {
         self,
         msg2: MessageTwo<CS>,
     ) -> Result<(VerificationCode<CS>, MessageThree), Error> {
-        // Check for reflection attack: ek must not equal ct
+        // Check for reflection attack: ek must not equal ct.
+        // For KEMs where ek and ct have different sizes (e.g., X-Wing),
+        // this check is always false and acts as defense-in-depth.
         if self.ek.as_ref() == msg2.ct.as_ref() {
             return Err(Error::ReflectionDetected);
         }
@@ -227,38 +232,5 @@ impl<CS: CipherSuite> Initiator<CS> {
         };
 
         Ok((code, message))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "x25519-sha256")]
-    use super::*;
-
-    #[cfg(feature = "x25519-sha256")]
-    #[test]
-    fn test_reflection_attack_detected() {
-        use crate::x25519::{X25519Ciphertext, X25519Sha256};
-
-        let mut rng = rand::thread_rng();
-
-        let (initiator, msg1) = Initiator::<X25519Sha256>::start(&mut rng);
-
-        // Simulate attacker reflecting the ek back as ciphertext
-        let reflected_ct = X25519Ciphertext::from_bytes(msg1.ek.as_ref().try_into().unwrap());
-        let fake_nonce = [0u8; 32];
-
-        let msg2 = MessageTwo {
-            ct: reflected_ct,
-            responder_nonce: fake_nonce,
-        };
-
-        let result = initiator.finish(msg2);
-
-        match result {
-            Err(Error::ReflectionDetected) => {} // Expected
-            Err(e) => panic!("Expected ReflectionDetected, got {:?}", e),
-            Ok(_) => panic!("Expected error, got Ok"),
-        }
     }
 }
