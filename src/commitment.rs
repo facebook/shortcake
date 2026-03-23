@@ -37,7 +37,7 @@ pub fn commit<H: Digest>(ek_bytes: &[u8], nonce: &Nonce) -> Output<H> {
 /// `Ok(())` if the commitment matches, `Err(Error::CommitmentMismatch)` otherwise.
 pub fn open<H: Digest>(ek_bytes: &[u8], nonce: &Nonce, expected: &Output<H>) -> Result<(), Error> {
     let computed = commit::<H>(ek_bytes, nonce);
-    if computed.ct_eq(expected).into() {
+    if computed.as_slice().ct_eq(expected.as_slice()).into() {
         Ok(())
     } else {
         Err(Error::CommitmentMismatch)
@@ -46,33 +46,33 @@ pub fn open<H: Digest>(ek_bytes: &[u8], nonce: &Nonce, expected: &Output<H>) -> 
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     use super::*;
 
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     #[test]
     fn test_commit_open_roundtrip() {
-        use sha2::Sha256;
+        use sha3::Sha3_256;
 
         let ek = [1u8; 32];
         let nonce = [2u8; 32];
 
-        let commitment = commit::<Sha256>(&ek, &nonce);
-        assert!(open::<Sha256>(&ek, &nonce, &commitment).is_ok());
+        let commitment = commit::<Sha3_256>(&ek, &nonce);
+        assert!(open::<Sha3_256>(&ek, &nonce, &commitment).is_ok());
     }
 
-    #[cfg(feature = "x25519-sha256")]
+    #[cfg(feature = "xwing")]
     #[test]
     fn test_commit_open_wrong_nonce() {
-        use sha2::Sha256;
+        use sha3::Sha3_256;
 
         let ek = [1u8; 32];
         let nonce = [2u8; 32];
         let wrong_nonce = [3u8; 32];
 
-        let commitment = commit::<Sha256>(&ek, &nonce);
+        let commitment = commit::<Sha3_256>(&ek, &nonce);
         assert_eq!(
-            open::<Sha256>(&ek, &wrong_nonce, &commitment),
+            open::<Sha3_256>(&ek, &wrong_nonce, &commitment),
             Err(Error::CommitmentMismatch)
         );
     }

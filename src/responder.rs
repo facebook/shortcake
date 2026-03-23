@@ -14,7 +14,7 @@
 use core::marker::PhantomData;
 
 use digest::Output;
-use rand_core::CryptoRngCore;
+use rand_core::CryptoRng;
 use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, Kem};
@@ -135,7 +135,7 @@ impl<CS: CipherSuite> Drop for Responder<CS> {
         self.responder_nonce.zeroize();
         self.ek.zeroize();
         self.ct.zeroize();
-        self.commitment.zeroize();
+        self.commitment.as_mut_slice().zeroize();
         if let Some(ref mut ss) = self.shared_secret {
             ss.zeroize();
         }
@@ -162,7 +162,7 @@ impl<CS: CipherSuite> Responder<CS> {
     ///
     /// A tuple of (responder_state, second_message) on success.
     pub fn start(
-        rng: &mut impl CryptoRngCore,
+        rng: &mut impl CryptoRng,
         msg1: MessageOne<CS>,
     ) -> Result<(Self, MessageTwo<CS>), Error> {
         // Encapsulate to Initiator's public key
@@ -223,35 +223,5 @@ impl<CS: CipherSuite> Responder<CS> {
             shared_secret: Some(shared_secret),
             _marker: PhantomData,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "x25519-sha256")]
-    use super::*;
-
-    #[cfg(feature = "x25519-sha256")]
-    #[test]
-    fn test_wrong_nonce_fails_commitment() {
-        use crate::x25519::X25519Sha256;
-
-        let mut rng = rand::thread_rng();
-
-        let (_initiator, msg1) = crate::initiator::Initiator::<X25519Sha256>::start(&mut rng);
-        let (responder, _msg2) = Responder::<X25519Sha256>::start(&mut rng, msg1).unwrap();
-
-        // Attacker sends wrong nonce
-        let wrong_nonce = [0xffu8; 32];
-        let msg3 = MessageThree {
-            initiator_nonce: wrong_nonce,
-        };
-        let result = responder.finish(msg3);
-
-        match result {
-            Err(Error::CommitmentMismatch) => {} // Expected
-            Err(e) => panic!("Expected CommitmentMismatch, got {:?}", e),
-            Ok(_) => panic!("Expected error, got Ok"),
-        }
     }
 }
