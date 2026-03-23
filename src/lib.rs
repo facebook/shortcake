@@ -28,7 +28,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! shortcake = { version = "0.2", features = ["xwing"] }
+//! shortcake = { version = "0.1.0-pre.1", features = ["xwing"] }
 //! ```
 //!
 //! We will use [`XWingSha3`] in the examples below.
