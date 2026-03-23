@@ -38,14 +38,20 @@ fn main() {
 
     println!("Initiator code: {:02x?}", i_code_bytes);
     println!("Responder code: {:02x?}", r_code_bytes);
+    assert_eq!(i_code_bytes, r_code_bytes, "Verification codes must match");
 
     // After human confirms codes match, verify programmatically
-    let _i_secret = i_code
+    let i_secret = i_code
         .verify(&r_code_bytes)
         .expect("Verification failed on initiator side");
-    let _r_secret = r_code
+    let r_secret = r_code
         .verify(&i_code_bytes)
         .expect("Verification failed on responder side");
+    assert_eq!(
+        i_secret.as_ref(),
+        r_secret.as_ref(),
+        "Shared secrets must match"
+    );
 
     println!("Protocol complete!");
 }
