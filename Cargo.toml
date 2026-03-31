@@ -14,9 +14,10 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = []
+default = ["getrandom"]
 std = []
 serde = ["dep:serde"]
+getrandom = ["dep:getrandom"]
 xwing = ["dep:x-wing", "dep:sha3"]
 
 [dependencies]
@@ -25,6 +26,7 @@ serde = { version = "1", default-features = false, features = ["derive"], option
 subtle = { version = "2.5", default-features = false }
 zeroize = { version = "1", default-features = false, features = ["derive"] }
 rand_core = { version = "0.10", default-features = false }
+getrandom = { version = "0.4", features = ["sys_rng"], optional = true }
 
 # Optional dependencies for xwing ciphersuite
 x-wing = { version = "0.1.0-rc.0", default-features = false, features = ["zeroize"], optional = true }
@@ -32,8 +34,8 @@ sha3 = { version = "0.11.0-rc.9", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
-hex = "0.4"
 getrandom = { version = "0.4", features = ["sys_rng"] }
+hex = "0.4"
 
 [[example]]
 name = "protocol"

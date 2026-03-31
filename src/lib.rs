@@ -123,7 +123,10 @@ mod verification;
 
 pub use ciphersuite::{CipherSuite, Kem};
 pub use error::Error;
+#[cfg(feature = "getrandom")]
+pub use getrandom;
 pub use initiator::{Initiator, MessageOne, MessageThree};
+pub use rand_core;
 pub use responder::{MessageTwo, Responder};
 pub use verification::VerificationCode;
 
