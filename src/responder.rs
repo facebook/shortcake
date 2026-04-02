@@ -22,7 +22,7 @@ use crate::commitment;
 use crate::error::Error;
 use crate::initiator::{MessageOne, MessageThree};
 use crate::sas::compute_sas;
-use crate::verification::VerificationCode;
+use crate::verification::ProtocolOutput;
 use crate::Nonce;
 
 /// The second protocol message (Responder -> Initiator).
@@ -118,7 +118,7 @@ where
 ///
 /// Created by [`Responder::start`] upon receiving the initiator's first
 /// message. Call [`Responder::finish`] after receiving the initiator's
-/// final message to obtain a [`VerificationCode`].
+/// final message to obtain a [`ProtocolOutput`].
 pub struct Responder<CS: CipherSuite> {
     ek: <CS::Kem as Kem>::EncapsulationKey,
     commitment: Output<CS::Hash>,
@@ -190,7 +190,7 @@ impl<CS: CipherSuite> Responder<CS> {
         Ok((state, message))
     }
 
-    /// Process the initiator's final message and produce a verification code.
+    /// Process the initiator's final message and produce the protocol output.
     ///
     /// This verifies the commitment and computes the SAS.
     ///
@@ -200,8 +200,8 @@ impl<CS: CipherSuite> Responder<CS> {
     ///
     /// # Returns
     ///
-    /// A [`VerificationCode`] on success.
-    pub fn finish(mut self, msg3: MessageThree) -> Result<VerificationCode<CS>, Error> {
+    /// A [`ProtocolOutput`] on success.
+    pub fn finish(mut self, msg3: MessageThree) -> Result<ProtocolOutput<CS>, Error> {
         // Verify commitment
         commitment::open::<CS::Hash>(self.ek.as_ref(), &msg3.initiator_nonce, &self.commitment)?;
 
@@ -218,9 +218,9 @@ impl<CS: CipherSuite> Responder<CS> {
             .take()
             .expect("shared_secret should always be Some");
 
-        Ok(VerificationCode {
+        Ok(ProtocolOutput {
             sas,
-            shared_secret: Some(shared_secret),
+            shared_secret,
             _marker: PhantomData,
         })
     }

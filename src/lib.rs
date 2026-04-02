@@ -28,7 +28,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! shortcake = { version = "0.1.0-pre.1", features = ["xwing"] }
+//! shortcake = { version = "0.1.0-pre.2", features = ["xwing"] }
 //! ```
 //!
 //! We will use [`XWingSha3`] in the examples below.
@@ -72,34 +72,36 @@
 //! ## Move 3: Initiator processes Move 2
 //!
 //! The Initiator decapsulates the ciphertext, computes the SAS, and
-//! produces a [`MessageThree`] to send back along with a [`VerificationCode`].
+//! produces a [`MessageThree`] to send back along with a [`ProtocolOutput`].
 //!
 //! ```ignore
-//! let (i_code, msg3) = initiator.finish(msg2)
+//! let (i_output, msg3) = initiator.finish(msg2)
 //!     .expect("Initiator failed to finish");
 //! // Send msg3 to the Responder.
 //! ```
 //!
 //! ## Responder processes Move 3
 //!
-//! The Responder verifies the commitment and computes its own [`VerificationCode`].
+//! The Responder verifies the commitment and computes its own [`ProtocolOutput`].
 //!
 //! ```ignore
-//! let r_code = responder.finish(msg3)
+//! let r_output = responder.finish(msg3)
 //!     .expect("Responder failed to finish");
 //! ```
 //!
 //! ## Verification
 //!
-//! Both parties compare their verification codes out-of-band (e.g., reading
-//! digits aloud, displaying an emoji sequence). If they match, call
-//! [`VerificationCode::verify`] with the other party's code bytes to obtain
-//! the shared secret.
+//! Both parties compare their SAS codes out-of-band (e.g., reading
+//! digits aloud, displaying an emoji sequence). Once confirmed, call
+//! `into_shared_secret()` to obtain the shared secret.
 //!
 //! ```ignore
-//! let r_code_bytes = r_code.as_bytes().to_vec();
-//! let shared_secret = i_code.verify(&r_code_bytes)
-//!     .expect("Verification failed");
+//! // Compare SAS codes out-of-band
+//! assert_eq!(i_output.sas_code(), r_output.sas_code());
+//!
+//! // After human confirmation, extract the shared secret
+//! let i_secret = i_output.into_shared_secret();
+//! let r_secret = r_output.into_shared_secret();
 //! ```
 //!
 //! # Features
@@ -128,7 +130,7 @@ pub use getrandom;
 pub use initiator::{Initiator, MessageOne, MessageThree};
 pub use rand_core;
 pub use responder::{MessageTwo, Responder};
-pub use verification::VerificationCode;
+pub use verification::ProtocolOutput;
 
 #[cfg(feature = "xwing")]
 mod xwing;

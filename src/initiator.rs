@@ -22,7 +22,7 @@ use crate::commitment;
 use crate::error::Error;
 use crate::responder::MessageTwo;
 use crate::sas::compute_sas;
-use crate::verification::VerificationCode;
+use crate::verification::ProtocolOutput;
 use crate::Nonce;
 
 /// The first protocol message (Initiator -> Responder).
@@ -137,7 +137,7 @@ pub struct MessageThree {
 ///
 /// Created by [`Initiator::start`], which generates a KEM keypair internally
 /// and produces the first protocol message. Call [`Initiator::finish`] after
-/// receiving the responder's reply to obtain a [`VerificationCode`] and the
+/// receiving the responder's reply to obtain a [`ProtocolOutput`] and the
 /// final protocol message.
 pub struct Initiator<CS: CipherSuite> {
     dk: <CS::Kem as Kem>::DecapsulationKey,
@@ -187,7 +187,7 @@ impl<CS: CipherSuite> Initiator<CS> {
         (state, message)
     }
 
-    /// Process the responder's message and produce a verification code.
+    /// Process the responder's message and produce the protocol output.
     ///
     /// This decapsulates the ciphertext to recover the shared secret,
     /// checks for reflection attacks, and computes the SAS.
@@ -198,11 +198,8 @@ impl<CS: CipherSuite> Initiator<CS> {
     ///
     /// # Returns
     ///
-    /// A tuple of (verification_code, third_message) on success.
-    pub fn finish(
-        self,
-        msg2: MessageTwo<CS>,
-    ) -> Result<(VerificationCode<CS>, MessageThree), Error> {
+    /// A tuple of (protocol_output, third_message) on success.
+    pub fn finish(self, msg2: MessageTwo<CS>) -> Result<(ProtocolOutput<CS>, MessageThree), Error> {
         // Check for reflection attack: ek must not equal ct.
         // For KEMs where ek and ct have different sizes (e.g., X-Wing),
         // this check is always false and acts as defense-in-depth.
@@ -221,9 +218,9 @@ impl<CS: CipherSuite> Initiator<CS> {
             msg2.ct.as_ref(),
         );
 
-        let code = VerificationCode {
+        let output = ProtocolOutput {
             sas,
-            shared_secret: Some(shared_secret),
+            shared_secret,
             _marker: PhantomData,
         };
 
@@ -231,6 +228,6 @@ impl<CS: CipherSuite> Initiator<CS> {
             initiator_nonce: self.initiator_nonce,
         };
 
-        Ok((code, message))
+        Ok((output, message))
     }
 }

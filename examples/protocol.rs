@@ -27,26 +27,23 @@ fn main() {
         Responder::<XWingSha3>::start(&mut rng, msg1).expect("Responder failed to start");
 
     // Move 3: Initiator processes msg2
-    let (i_code, msg3) = initiator.finish(msg2).expect("Initiator failed to finish");
+    let (i_output, msg3) = initiator.finish(msg2).expect("Initiator failed to finish");
 
     // Responder processes msg3
-    let r_code = responder.finish(msg3).expect("Responder failed to finish");
+    let r_output = responder.finish(msg3).expect("Responder failed to finish");
 
-    // Both parties display their codes for out-of-band comparison
-    let r_code_bytes = r_code.as_bytes().to_vec();
-    let i_code_bytes = i_code.as_bytes().to_vec();
+    // Both parties display their SAS codes for out-of-band comparison
+    println!("Initiator SAS: {:02x?}", i_output.sas_code());
+    println!("Responder SAS: {:02x?}", r_output.sas_code());
+    assert_eq!(
+        i_output.sas_code(),
+        r_output.sas_code(),
+        "SAS codes must match"
+    );
 
-    println!("Initiator code: {:02x?}", i_code_bytes);
-    println!("Responder code: {:02x?}", r_code_bytes);
-    assert_eq!(i_code_bytes, r_code_bytes, "Verification codes must match");
-
-    // After human confirms codes match, verify programmatically
-    let i_secret = i_code
-        .verify(&r_code_bytes)
-        .expect("Verification failed on initiator side");
-    let r_secret = r_code
-        .verify(&i_code_bytes)
-        .expect("Verification failed on responder side");
+    // After human confirms SAS codes match, extract shared secrets
+    let i_secret = i_output.into_shared_secret();
+    let r_secret = r_output.into_shared_secret();
     assert_eq!(
         i_secret.as_ref(),
         r_secret.as_ref(),

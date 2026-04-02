@@ -72,25 +72,6 @@ mod xwing_benches {
             );
         });
     }
-
-    pub fn bench_verify(c: &mut Criterion) {
-        c.bench_function("xwing/verify", |b| {
-            let mut rng = test_rng();
-            b.iter_batched(
-                || {
-                    let (istate, msg1) = Initiator::<XWingSha3>::start(&mut rng);
-                    let (rstate, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
-                    let (i_code, msg3) = istate.finish(msg2).unwrap();
-                    let r_code = rstate.finish(msg3).unwrap();
-                    let r_code_bytes = r_code.as_bytes().to_vec();
-                    drop(r_code);
-                    (i_code, r_code_bytes)
-                },
-                |(i_code, r_code_bytes)| i_code.verify(&r_code_bytes),
-                criterion::BatchSize::SmallInput,
-            );
-        });
-    }
 }
 
 #[cfg(feature = "xwing")]
@@ -100,7 +81,6 @@ criterion_group!(
     xwing_benches::bench_responder_start,
     xwing_benches::bench_initiator_finish,
     xwing_benches::bench_responder_finish,
-    xwing_benches::bench_verify,
 );
 
 #[cfg(not(feature = "xwing"))]

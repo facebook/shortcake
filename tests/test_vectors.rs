@@ -67,26 +67,25 @@ fn test_vector_full_protocol() {
     let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
 
     // Move 3
-    let (i_code, msg3) = initiator.finish(msg2).unwrap();
+    let (i_output, msg3) = initiator.finish(msg2).unwrap();
 
     // Responder verifies
-    let r_code = responder.finish(msg3).unwrap();
+    let r_output = responder.finish(msg3).unwrap();
 
-    // Codes must match
-    assert_eq!(i_code.as_bytes(), r_code.as_bytes());
+    // SAS codes must match
+    let i_sas = i_output.sas_code().to_vec();
+    let r_sas = r_output.sas_code().to_vec();
+    assert_eq!(i_sas, r_sas);
 
-    // Verify and obtain shared secrets
-    let r_code_bytes = r_code.as_bytes().to_vec();
-    let i_code_bytes = i_code.as_bytes().to_vec();
-
-    let i_secret = i_code.verify(&r_code_bytes).unwrap();
-    let r_secret = r_code.verify(&i_code_bytes).unwrap();
+    // Extract shared secrets
+    let i_secret = i_output.into_shared_secret();
+    let r_secret = r_output.into_shared_secret();
 
     assert_eq!(i_secret.as_ref(), r_secret.as_ref());
 
     // Assert against known test vectors.
     // These verify the entire protocol computation is deterministic.
-    assert_eq!(hex::encode(i_code_bytes), hex::encode(r_code_bytes));
+    assert_eq!(hex::encode(&i_sas), hex::encode(&r_sas));
     assert_eq!(
         hex::encode(i_secret.as_ref()),
         hex::encode(r_secret.as_ref()),

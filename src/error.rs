@@ -21,8 +21,6 @@ pub enum Error {
     CommitmentMismatch,
     /// Reflection attack detected (encapsulation key equals ciphertext).
     ReflectionDetected,
-    /// Verification code mismatch.
-    VerificationFailed,
 }
 
 impl fmt::Display for Error {
@@ -32,7 +30,6 @@ impl fmt::Display for Error {
             Error::DecapsulationFailed => write!(f, "KEM decapsulation failed"),
             Error::CommitmentMismatch => write!(f, "commitment verification failed"),
             Error::ReflectionDetected => write!(f, "reflection attack detected"),
-            Error::VerificationFailed => write!(f, "verification code mismatch"),
         }
     }
 }

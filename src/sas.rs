@@ -13,8 +13,6 @@
 //!
 //! The library computes the full-length SAS ([`SAS_MAX_LEN`] bytes) and
 //! returns it to the caller, who can truncate to any desired prefix length.
-//! [`DEFAULT_SAS_LEN`] (5 bytes / 40 bits) is a reasonable default for most
-//! applications.
 
 use digest::Digest;
 
@@ -23,21 +21,11 @@ use crate::Nonce;
 /// The maximum length of the SAS in bytes, equal to the nonce size.
 pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
 
-/// The default (recommended) SAS length in bytes (40 bits).
-///
-/// This provides a 1-in-2^40 chance of a successful attack, which is
-/// the standard target for SAS-based protocols.
-pub const DEFAULT_SAS_LEN: usize = 5;
-
 /// A Short Authenticated String.
 ///
 /// Contains the full [`SAS_MAX_LEN`]-byte SAS value. Callers should
-/// truncate to their desired length (see [`DEFAULT_SAS_LEN`]) when
-/// displaying or comparing out-of-band:
-///
-/// ```ignore
-/// let sas_bytes = &sas.as_bytes()[..DEFAULT_SAS_LEN];
-/// ```
+/// truncate to their desired length when displaying or comparing
+/// out-of-band.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sas(pub(crate) [u8; SAS_MAX_LEN]);
