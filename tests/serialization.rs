@@ -116,3 +116,91 @@ fn test_kem_encaps_decaps_serialization_roundtrip() {
 
     assert_eq!(ss1.as_ref(), ss2.as_ref());
 }
+
+#[cfg(feature = "serde")]
+mod serde_tests {
+    use rand_core::UnwrapErr;
+    use shortcake::{Initiator, Responder, XWingSha3};
+
+    fn test_rng() -> UnwrapErr<getrandom::SysRng> {
+        UnwrapErr(getrandom::SysRng)
+    }
+
+    #[test]
+    fn test_initiator_serde_roundtrip() {
+        let mut rng = test_rng();
+
+        // Move 1: Initiator starts
+        let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
+
+        // Serialize initiator state
+        let bytes = postcard::to_allocvec(&initiator).unwrap();
+
+        // Deserialize back
+        let initiator: Initiator<XWingSha3> = postcard::from_bytes(&bytes).unwrap();
+
+        // Move 2: Responder processes msg1
+        let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
+
+        // Move 3: Initiator (deserialized) processes msg2
+        let (i_output, msg3) = initiator.finish(msg2).unwrap();
+
+        // Responder processes msg3
+        let r_output = responder.finish(msg3).unwrap();
+
+        // SAS codes must match
+        assert_eq!(
+            i_output.sas_code(),
+            r_output.sas_code(),
+            "SAS codes must match after initiator serde round-trip"
+        );
+
+        // Shared secrets must match
+        let i_secret = i_output.into_shared_secret();
+        let r_secret = r_output.into_shared_secret();
+        assert_eq!(
+            i_secret.as_ref(),
+            r_secret.as_ref(),
+            "Shared secrets must match after initiator serde round-trip"
+        );
+    }
+
+    #[test]
+    fn test_responder_serde_roundtrip() {
+        let mut rng = test_rng();
+
+        // Move 1: Initiator starts
+        let (initiator, msg1) = Initiator::<XWingSha3>::start(&mut rng);
+
+        // Move 2: Responder processes msg1
+        let (responder, msg2) = Responder::<XWingSha3>::start(&mut rng, msg1).unwrap();
+
+        // Serialize responder state
+        let bytes = postcard::to_allocvec(&responder).unwrap();
+
+        // Deserialize back
+        let responder: Responder<XWingSha3> = postcard::from_bytes(&bytes).unwrap();
+
+        // Move 3: Initiator processes msg2
+        let (i_output, msg3) = initiator.finish(msg2).unwrap();
+
+        // Responder (deserialized) processes msg3
+        let r_output = responder.finish(msg3).unwrap();
+
+        // SAS codes must match
+        assert_eq!(
+            i_output.sas_code(),
+            r_output.sas_code(),
+            "SAS codes must match after responder serde round-trip"
+        );
+
+        // Shared secrets must match
+        let i_secret = i_output.into_shared_secret();
+        let r_secret = r_output.into_shared_secret();
+        assert_eq!(
+            i_secret.as_ref(),
+            r_secret.as_ref(),
+            "Shared secrets must match after responder serde round-trip"
+        );
+    }
+}
