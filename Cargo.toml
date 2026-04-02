@@ -1,6 +1,6 @@
 [package]
 name = "shortcake"
-version = "0.1.0-pre.2"
+version = "0.1.0-pre.3"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
@@ -36,10 +36,11 @@ sha3 = { version = "0.11.0-rc.9", default-features = false, optional = true }
 criterion = "0.5"
 getrandom = { version = "0.4", features = ["sys_rng"] }
 hex = "0.4"
+postcard = { version = "1", features = ["alloc"] }
 
 [[example]]
 name = "protocol"
-required-features = ["xwing"]
+required-features = ["xwing", "serde"]
 
 [[bench]]
 name = "shortcake"
