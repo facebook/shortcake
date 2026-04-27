@@ -6,6 +6,7 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
+// Requires the `xwing` feature: cargo bench shortcake --features xwing
 use criterion::{criterion_group, criterion_main};
 
 #[cfg(feature = "xwing")]
@@ -86,7 +87,9 @@ criterion_group!(
 #[cfg(not(feature = "xwing"))]
 mod noop {
     use criterion::Criterion;
-    pub fn bench_noop(_c: &mut Criterion) {}
+    pub fn bench_noop(_c: &mut Criterion) {
+        eprintln!("No benchmarks to run. Enable the xwing feature: cargo bench shortcake --features xwing");
+    }
 }
 
 #[cfg(not(feature = "xwing"))]
