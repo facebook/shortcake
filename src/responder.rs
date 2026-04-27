@@ -139,14 +139,6 @@ impl<CS: CipherSuite> Drop for Responder<CS> {
         if let Some(ref mut ss) = self.shared_secret {
             ss.zeroize();
         }
-        // Zero the Option wrapper to clear discriminant and any residual bytes.
-        unsafe {
-            core::ptr::write_bytes(
-                &mut self.shared_secret as *mut _ as *mut u8,
-                0,
-                core::mem::size_of::<Option<<CS::Kem as Kem>::SharedSecret>>(),
-            );
-        }
     }
 }
 
