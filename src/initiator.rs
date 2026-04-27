@@ -220,7 +220,7 @@ impl<CS: CipherSuite> Initiator<CS> {
 
         let output = ProtocolOutput {
             sas,
-            shared_secret,
+            shared_secret: Some(shared_secret),
             _marker: PhantomData,
         };
 

@@ -9,7 +9,6 @@
 //! Protocol output containing the SAS code and shared secret.
 
 use core::marker::PhantomData;
-use core::mem::ManuallyDrop;
 
 use zeroize::Zeroize;
 
@@ -31,7 +30,7 @@ use crate::sas::Sas;
 /// substituted their own key material.
 pub struct ProtocolOutput<CS: CipherSuite> {
     pub(crate) sas: Sas,
-    pub(crate) shared_secret: <CS::Kem as Kem>::SharedSecret,
+    pub(crate) shared_secret: Option<<CS::Kem as Kem>::SharedSecret>,
     pub(crate) _marker: PhantomData<CS>,
 }
 
@@ -53,19 +52,17 @@ impl<CS: CipherSuite> ProtocolOutput<CS> {
     /// Using the secret before verification provides no authentication
     /// guarantee — an active attacker could have substituted their own
     /// key material.
-    pub fn into_shared_secret(self) -> <CS::Kem as Kem>::SharedSecret {
-        // Wrap in ManuallyDrop to prevent the Drop impl from running,
-        // then read the shared_secret field out.
-        let this = ManuallyDrop::new(self);
-        // SAFETY: We own `this` and will not drop it (ManuallyDrop),
-        // so reading the field is safe. The remaining fields (sas,
-        // _marker) are Copy/ZST and need no destructor.
-        unsafe { core::ptr::read(&this.shared_secret) }
+    pub fn into_shared_secret(mut self) -> <CS::Kem as Kem>::SharedSecret {
+        self.shared_secret
+            .take()
+            .expect("into_shared_secret called twice")
     }
 }
 
 impl<CS: CipherSuite> Drop for ProtocolOutput<CS> {
     fn drop(&mut self) {
-        self.shared_secret.zeroize();
+        if let Some(ref mut ss) = self.shared_secret {
+            ss.zeroize();
+        }
     }
 }

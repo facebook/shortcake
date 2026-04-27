@@ -220,7 +220,7 @@ impl<CS: CipherSuite> Responder<CS> {
 
         Ok(ProtocolOutput {
             sas,
-            shared_secret,
+            shared_secret: Some(shared_secret),
             _marker: PhantomData,
         })
     }
