@@ -15,6 +15,7 @@ use core::marker::PhantomData;
 
 use digest::Output;
 use rand_core::CryptoRng;
+use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, Kem};
@@ -203,7 +204,7 @@ impl<CS: CipherSuite> Initiator<CS> {
         // Check for reflection attack: ek must not equal ct.
         // For KEMs where ek and ct have different sizes (e.g., X-Wing),
         // this check is always false and acts as defense-in-depth.
-        if self.ek.as_ref() == msg2.ct.as_ref() {
+        if self.ek.as_ref().ct_eq(msg2.ct.as_ref()).into() {
             return Err(Error::ReflectionDetected);
         }
 
