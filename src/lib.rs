@@ -93,15 +93,15 @@
 //!
 //! Both parties compare their SAS codes out-of-band (e.g., reading
 //! digits aloud, displaying an emoji sequence). Once confirmed, call
-//! `into_shared_secret()` to obtain the shared secret.
+//! `into_session_key()` to obtain the session key.
 //!
 //! ```ignore
 //! // Compare SAS codes out-of-band
 //! assert_eq!(i_output.sas_code(), r_output.sas_code());
 //!
-//! // After human confirmation, extract the shared secret
-//! let i_secret = i_output.into_shared_secret();
-//! let r_secret = r_output.into_shared_secret();
+//! // After human confirmation, extract the session key
+//! let i_key = i_output.into_session_key();
+//! let r_key = r_output.into_session_key();
 //! ```
 //!
 //! # Features
@@ -119,6 +119,7 @@ mod ciphersuite;
 mod commitment;
 mod error;
 mod initiator;
+mod kdf;
 mod responder;
 mod sas;
 mod verification;

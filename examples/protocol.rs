@@ -100,18 +100,18 @@ fn main() {
     );
 
     // After human confirms SAS codes match, extract shared secrets
-    let i_secret = i_output.into_shared_secret();
-    let r_secret = r_output.into_shared_secret();
+    let i_secret = i_output.into_session_key();
+    let r_secret = r_output.into_session_key();
     assert_eq!(
-        i_secret.as_ref(),
-        r_secret.as_ref(),
+        i_secret.as_slice(),
+        r_secret.as_slice(),
         "Shared secrets must match"
     );
 
     println!(
         "shared secret ({} bytes): {:?}",
-        i_secret.as_ref().len(),
-        hex::encode(i_secret.as_ref())
+        i_secret.as_slice().len(),
+        hex::encode(i_secret.as_slice())
     );
     println!("Protocol complete!");
 }
