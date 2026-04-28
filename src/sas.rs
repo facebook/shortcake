@@ -18,6 +18,9 @@ use digest::Digest;
 
 use crate::Nonce;
 
+/// Domain separation string for SAS derivation.
+const SAS_DOMAIN_SEPARATOR: &[u8] = b"shortcake-sas-v1";
+
 /// The maximum length of the SAS in bytes, equal to the nonce size.
 pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
 
@@ -67,7 +70,7 @@ pub fn compute_sas<H: Digest>(
     ct_bytes: &[u8],
 ) -> Sas {
     let mut hasher = H::new();
-    hasher.update(b"shortcake-sas-v1");
+    hasher.update(SAS_DOMAIN_SEPARATOR);
     hasher.update(initiator_nonce);
     hasher.update((ct_bytes.len() as u64).to_be_bytes());
     hasher.update(ct_bytes);

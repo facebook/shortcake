@@ -14,6 +14,9 @@ use subtle::ConstantTimeEq;
 use crate::error::Error;
 use crate::Nonce;
 
+/// Domain separation string for commitments.
+const COMMITMENT_DOMAIN_SEPARATOR: &[u8] = b"shortcake-commitment-v1";
+
 /// Compute a commitment over an encapsulation key and nonce.
 ///
 /// The commitment is `Hash("shortcake-commitment-v1" || len(ek_bytes) || ek_bytes || nonce)`,
@@ -21,7 +24,7 @@ use crate::Nonce;
 /// unambiguous parsing for variable-length encapsulation keys.
 pub fn commit<H: Digest>(ek_bytes: &[u8], nonce: &Nonce) -> Output<H> {
     let mut hasher = H::new();
-    hasher.update(b"shortcake-commitment-v1");
+    hasher.update(COMMITMENT_DOMAIN_SEPARATOR);
     hasher.update((ek_bytes.len() as u64).to_be_bytes());
     hasher.update(ek_bytes);
     hasher.update(nonce);
