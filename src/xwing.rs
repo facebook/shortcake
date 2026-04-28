@@ -11,8 +11,6 @@
 //! This module provides a ready-to-use ciphersuite using X-Wing (a hybrid
 //! KEM combining X25519 and ML-KEM-768) and SHA3-256 for hashing.
 
-use core::mem::ManuallyDrop;
-
 use rand_core::CryptoRng;
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -49,27 +47,19 @@ impl AsRef<[u8]> for XWingSharedSecret {
 /// Stores the fully expanded X-Wing key (ML-KEM-768 + X25519 key material)
 /// so that decapsulation does not need to re-derive from the seed.
 pub struct XWingDecapsulationKey {
-    inner: ManuallyDrop<x_wing::DecapsulationKey>,
-}
-
-impl Drop for XWingDecapsulationKey {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
+    inner: x_wing::DecapsulationKey,
 }
 
 impl Zeroize for XWingDecapsulationKey {
     fn zeroize(&mut self) {
-        // SAFETY: We zero the entire x-wing DecapsulationKey including all
-        // expanded key material. ManuallyDrop prevents the inner Drop from
-        // running on the zeroed memory.
-        unsafe {
-            core::ptr::write_bytes(
-                &mut *self.inner as *mut x_wing::DecapsulationKey as *mut u8,
-                0,
-                core::mem::size_of::<x_wing::DecapsulationKey>(),
-            );
-        }
+        use x_wing::KeyInit as _;
+        // x-wing implements ZeroizeOnDrop but not Zeroize, so we trigger
+        // zeroization by replacing the inner key: the old value is dropped,
+        // and x-wing's Drop zeros its secret seed. The replacement holds a
+        // key derived from a zero seed, which contains no secret material.
+        // x-wing only stores the 32-byte seed (not expanded key material),
+        // so zeroing the seed is sufficient.
+        self.inner = x_wing::DecapsulationKey::new(&[0u8; 32].into());
     }
 }
 
@@ -108,7 +98,7 @@ impl XWingDecapsulationKey {
     pub fn from_seed(seed: [u8; 32]) -> Self {
         use x_wing::KeyInit as _;
         Self {
-            inner: ManuallyDrop::new(x_wing::DecapsulationKey::new(&seed.into())),
+            inner: x_wing::DecapsulationKey::new(&seed.into()),
         }
     }
 
@@ -277,9 +267,7 @@ impl Kem for XWingKem {
         ek_arr.copy_from_slice(ek_bytes.as_slice());
 
         (
-            XWingDecapsulationKey {
-                inner: ManuallyDrop::new(dk),
-            },
+            XWingDecapsulationKey { inner: dk },
             XWingEncapsulationKey(ek_arr),
         )
     }
