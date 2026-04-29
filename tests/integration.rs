@@ -42,12 +42,12 @@ fn test_full_protocol_roundtrip() {
     );
 
     // Extract shared secrets
-    let i_secret = i_output.into_shared_secret();
-    let r_secret = r_output.into_shared_secret();
+    let i_secret = i_output.into_session_key();
+    let r_secret = r_output.into_session_key();
 
     assert_eq!(
-        i_secret.as_ref(),
-        r_secret.as_ref(),
+        i_secret.as_slice(),
+        r_secret.as_slice(),
         "Shared secrets must match between Initiator and Responder"
     );
 }

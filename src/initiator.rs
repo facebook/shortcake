@@ -20,6 +20,7 @@ use zeroize::Zeroize;
 use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
+use crate::kdf::derive_session_key;
 use crate::responder::MessageTwo;
 use crate::sas::compute_sas;
 use crate::verification::ProtocolOutput;
@@ -131,9 +132,19 @@ impl<CS: CipherSuite> Initiator<CS> {
             return Err(Error::ReflectionDetected);
         }
 
-        // Decapsulate to get shared secret
-        let shared_secret =
+        // Decapsulate to get KEM shared secret
+        let mut kem_ss =
             CS::Kem::decaps(&self.dk, &msg2.ct).map_err(|_| Error::DecapsulationFailed)?;
+
+        // Derive session key from full transcript
+        let session_key = derive_session_key::<CS::Hash>(
+            kem_ss.as_ref(),
+            self.ek.as_ref(),
+            msg2.ct.as_ref(),
+            &self.initiator_nonce,
+            &msg2.responder_nonce,
+        );
+        kem_ss.zeroize();
 
         // Compute SAS
         let sas = compute_sas::<CS::Hash>(
@@ -144,7 +155,7 @@ impl<CS: CipherSuite> Initiator<CS> {
 
         let output = ProtocolOutput {
             sas,
-            shared_secret,
+            session_key,
             _marker: PhantomData,
         };
 
