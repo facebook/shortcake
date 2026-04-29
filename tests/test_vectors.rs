@@ -9,7 +9,8 @@
 //! Deterministic test vectors for the Shortcake protocol.
 //!
 //! These vectors use a simple counter-based seeded RNG to produce reproducible
-//! outputs. If any protocol computation changes, these tests will fail.
+//! outputs. If any protocol computation changes, these tests will fail,
+//! making non-backwards-compatible changes immediately obvious.
 
 #![cfg(feature = "xwing")]
 
@@ -56,6 +57,13 @@ impl TryRng for SeededRng {
 
 impl TryCryptoRng for SeededRng {}
 
+// Pinned test vectors. If these fail, the protocol output has changed
+// in a non-backwards-compatible way. Update only after deliberate
+// protocol changes.
+const EXPECTED_SAS: &str = "dfe5b0a15edef578c585393131f8d364d2486ccfb561ac86fa3d86584be4301f";
+const EXPECTED_SESSION_KEY: &str =
+    "54e9858d7857729facfbdde00c2ebde0324a4b5303402f4e9971ca29927e4f31";
+
 #[test]
 fn test_vector_full_protocol() {
     let mut rng = SeededRng::new(0);
@@ -72,22 +80,28 @@ fn test_vector_full_protocol() {
     // Responder verifies
     let r_output = responder.finish(msg3).unwrap();
 
-    // SAS codes must match
+    // Both sides must produce identical SAS and session key
     let i_sas = i_output.sas_code().to_vec();
     let r_sas = r_output.sas_code().to_vec();
-    assert_eq!(i_sas, r_sas);
+    assert_eq!(i_sas, r_sas, "SAS mismatch between Initiator and Responder");
 
-    // Extract shared secrets
-    let i_secret = i_output.into_session_key();
-    let r_secret = r_output.into_session_key();
-
-    assert_eq!(i_secret.as_slice(), r_secret.as_slice());
-
-    // Assert against known test vectors.
-    // These verify the entire protocol computation is deterministic.
-    assert_eq!(hex::encode(&i_sas), hex::encode(&r_sas));
+    let i_key = i_output.into_session_key();
+    let r_key = r_output.into_session_key();
     assert_eq!(
-        hex::encode(i_secret.as_slice()),
-        hex::encode(r_secret.as_slice()),
+        i_key.as_slice(),
+        r_key.as_slice(),
+        "session key mismatch between Initiator and Responder"
+    );
+
+    // Check against pinned test vectors
+    assert_eq!(
+        hex::encode(&i_sas),
+        EXPECTED_SAS,
+        "SAS does not match pinned test vector — protocol output has changed"
+    );
+    assert_eq!(
+        hex::encode(i_key.as_slice()),
+        EXPECTED_SESSION_KEY,
+        "session key does not match pinned test vector — protocol output has changed"
     );
 }
