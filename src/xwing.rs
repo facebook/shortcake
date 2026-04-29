@@ -114,129 +114,83 @@ impl XWingDecapsulationKey {
     }
 }
 
-/// X-Wing encapsulation (public) key (1216 bytes).
-#[derive(Clone)]
-pub struct XWingEncapsulationKey([u8; ENCAPSULATION_KEY_SIZE]);
+macro_rules! byte_array_newtype {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident([u8; $size:expr]);
+        label = $label:expr;
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone)]
+        $vis struct $name([u8; $size]);
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for XWingEncapsulationKey {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_bytes(&self.0)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for XWingEncapsulationKey {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct EkVisitor;
-        impl<'de> serde::de::Visitor<'de> for EkVisitor {
-            type Value = XWingEncapsulationKey;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(
-                    f,
-                    "{} bytes for X-Wing encapsulation key",
-                    ENCAPSULATION_KEY_SIZE
-                )
-            }
-            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
-                XWingEncapsulationKey::from_bytes(v)
-                    .ok_or_else(|| E::invalid_length(v.len(), &self))
+        #[cfg(feature = "serde")]
+        impl serde::Serialize for $name {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_bytes(&self.0)
             }
         }
-        deserializer.deserialize_bytes(EkVisitor)
-    }
-}
 
-impl XWingEncapsulationKey {
-    /// Create from raw bytes.
-    ///
-    /// Returns `None` if the byte slice is not exactly the correct length
-    /// (1216 bytes).
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() != ENCAPSULATION_KEY_SIZE {
-            return None;
-        }
-        let mut arr = [0u8; ENCAPSULATION_KEY_SIZE];
-        arr.copy_from_slice(bytes);
-        Some(Self(arr))
-    }
-
-    /// Get the raw bytes.
-    pub fn as_bytes(&self) -> &[u8; ENCAPSULATION_KEY_SIZE] {
-        &self.0
-    }
-}
-
-impl AsRef<[u8]> for XWingEncapsulationKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl Zeroize for XWingEncapsulationKey {
-    fn zeroize(&mut self) {
-        self.0.zeroize();
-    }
-}
-
-/// X-Wing ciphertext (1120 bytes).
-#[derive(Clone)]
-pub struct XWingCiphertext([u8; CIPHERTEXT_SIZE]);
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for XWingCiphertext {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_bytes(&self.0)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for XWingCiphertext {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct CtVisitor;
-        impl<'de> serde::de::Visitor<'de> for CtVisitor {
-            type Value = XWingCiphertext;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(f, "{} bytes for X-Wing ciphertext", CIPHERTEXT_SIZE)
-            }
-            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
-                XWingCiphertext::from_bytes(v).ok_or_else(|| E::invalid_length(v.len(), &self))
+        #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                struct Visitor;
+                impl<'de> serde::de::Visitor<'de> for Visitor {
+                    type Value = $name;
+                    fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                        write!(f, "{} bytes for {}", $size, $label)
+                    }
+                    fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+                        $name::from_bytes(v).ok_or_else(|| E::invalid_length(v.len(), &self))
+                    }
+                }
+                deserializer.deserialize_bytes(Visitor)
             }
         }
-        deserializer.deserialize_bytes(CtVisitor)
-    }
-}
 
-impl XWingCiphertext {
-    /// Create from raw bytes.
-    ///
-    /// Returns `None` if the byte slice is not exactly the correct length
-    /// (1120 bytes).
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() != CIPHERTEXT_SIZE {
-            return None;
+        impl $name {
+            /// Create from raw bytes.
+            ///
+            /// Returns `None` if the byte slice is not exactly the correct length.
+            pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+                if bytes.len() != $size {
+                    return None;
+                }
+                let mut arr = [0u8; $size];
+                arr.copy_from_slice(bytes);
+                Some(Self(arr))
+            }
+
+            /// Get the raw bytes.
+            pub fn as_bytes(&self) -> &[u8; $size] {
+                &self.0
+            }
         }
-        let mut arr = [0u8; CIPHERTEXT_SIZE];
-        arr.copy_from_slice(bytes);
-        Some(Self(arr))
-    }
 
-    /// Get the raw bytes.
-    pub fn as_bytes(&self) -> &[u8; CIPHERTEXT_SIZE] {
-        &self.0
-    }
+        impl AsRef<[u8]> for $name {
+            fn as_ref(&self) -> &[u8] {
+                &self.0
+            }
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.0.zeroize();
+            }
+        }
+    };
 }
 
-impl AsRef<[u8]> for XWingCiphertext {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
+byte_array_newtype! {
+    /// X-Wing encapsulation (public) key (1216 bytes).
+    pub struct XWingEncapsulationKey([u8; ENCAPSULATION_KEY_SIZE]);
+    label = "X-Wing encapsulation key";
 }
 
-impl Zeroize for XWingCiphertext {
-    fn zeroize(&mut self) {
-        self.0.zeroize();
-    }
+byte_array_newtype! {
+    /// X-Wing ciphertext (1120 bytes).
+    pub struct XWingCiphertext([u8; CIPHERTEXT_SIZE]);
+    label = "X-Wing ciphertext";
 }
 
 /// Error type for X-Wing KEM operations.
