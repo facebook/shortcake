@@ -9,7 +9,8 @@
 //! Deterministic test vectors for the Shortcake protocol.
 //!
 //! These vectors use a simple counter-based seeded RNG to produce reproducible
-//! outputs. If any protocol computation changes, these tests will fail.
+//! outputs. If any protocol computation changes, these tests will fail,
+//! making non-backwards-compatible changes immediately obvious.
 
 #![cfg(feature = "xwing")]
 
@@ -56,6 +57,15 @@ impl TryRng for SeededRng {
 
 impl TryCryptoRng for SeededRng {}
 
+// Pinned test vectors. If these fail, the protocol output has changed
+// in a non-backwards-compatible way. Update only after deliberate
+// protocol changes.
+const EXPECTED_SAS: &str = "067033da8c19def9414c436e5ebb852beafde90254db9c29db992875081429ca";
+const EXPECTED_SESSION_KEY: &str =
+    "16b56ef77ca1e16d12d05c45a2d47a308b7f16aa27ab00617d2fb78219f3627c";
+// msg3 contains the initiator nonce, which opens the commitment.
+const EXPECTED_MSG3: &str = "0400000000000000050000000000000006000000000000000700000000000000";
+
 #[test]
 fn test_vector_full_protocol() {
     let mut rng = SeededRng::new(0);
@@ -68,26 +78,30 @@ fn test_vector_full_protocol() {
 
     // Move 3
     let (i_output, msg3) = initiator.finish(msg2).unwrap();
+    let msg3_bytes = postcard::to_allocvec(&msg3).unwrap();
 
     // Responder verifies
     let r_output = responder.finish(msg3).unwrap();
 
-    // SAS codes must match
+    // Both sides must produce identical SAS and session key
     let i_sas = i_output.sas_code().to_vec();
     let r_sas = r_output.sas_code().to_vec();
-    assert_eq!(i_sas, r_sas);
+    assert_eq!(i_sas, r_sas, "SAS mismatch between Initiator and Responder");
 
-    // Extract shared secrets
-    let i_secret = i_output.into_session_key();
-    let r_secret = r_output.into_session_key();
-
-    assert_eq!(i_secret.as_slice(), r_secret.as_slice());
-
-    // Assert against known test vectors.
-    // These verify the entire protocol computation is deterministic.
-    assert_eq!(hex::encode(&i_sas), hex::encode(&r_sas));
+    let i_key = i_output.into_session_key();
+    let r_key = r_output.into_session_key();
     assert_eq!(
-        hex::encode(i_secret.as_slice()),
-        hex::encode(r_secret.as_slice()),
+        i_key.as_slice(),
+        r_key.as_slice(),
+        "session key mismatch between Initiator and Responder"
+    );
+
+    // Check against pinned test vectors
+    assert_eq!(hex::encode(&msg3_bytes), EXPECTED_MSG3, "msg3 changed");
+    assert_eq!(hex::encode(&i_sas), EXPECTED_SAS, "SAS changed");
+    assert_eq!(
+        hex::encode(i_key.as_slice()),
+        EXPECTED_SESSION_KEY,
+        "session key changed"
     );
 }
