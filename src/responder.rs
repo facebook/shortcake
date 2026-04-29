@@ -17,11 +17,12 @@ use digest::Output;
 use rand_core::CryptoRng;
 use zeroize::Zeroize;
 
+use digest::Digest;
+
 use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
 use crate::initiator::{MessageOne, MessageThree};
-use crate::kdf::derive_session_key;
 use crate::sas::compute_sas;
 use crate::verification::ProtocolOutput;
 use crate::Nonce;
@@ -146,13 +147,19 @@ impl<CS: CipherSuite> Responder<CS> {
             .take()
             .expect("shared_secret should always be Some");
 
-        let session_key = derive_session_key::<CS::Hash>(
-            kem_ss.as_ref(),
-            self.ek.as_ref(),
-            self.ct.as_ref(),
-            &msg3.initiator_nonce,
-            &self.responder_nonce,
-        );
+        let session_key = {
+            let mut h = CS::Hash::new();
+            h.update(b"shortcake-session-key-v1");
+            h.update((self.ek.as_ref().len() as u64).to_be_bytes());
+            h.update(self.ek.as_ref());
+            h.update((self.ct.as_ref().len() as u64).to_be_bytes());
+            h.update(self.ct.as_ref());
+            h.update(self.responder_nonce);
+            h.update(msg3.initiator_nonce);
+            h.update((kem_ss.as_ref().len() as u64).to_be_bytes());
+            h.update(kem_ss.as_ref());
+            h.finalize()
+        };
         kem_ss.zeroize();
 
         Ok(ProtocolOutput {

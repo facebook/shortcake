@@ -18,10 +18,11 @@ use rand_core::CryptoRng;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroize;
 
+use digest::Digest;
+
 use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
-use crate::kdf::derive_session_key;
 use crate::responder::MessageTwo;
 use crate::sas::compute_sas;
 use crate::verification::ProtocolOutput;
@@ -137,14 +138,20 @@ impl<CS: CipherSuite> Initiator<CS> {
         let mut kem_ss =
             CS::Kem::decaps(&self.dk, &msg2.ct).map_err(|_| Error::DecapsulationFailed)?;
 
-        // Derive session key from full transcript
-        let session_key = derive_session_key::<CS::Hash>(
-            kem_ss.as_ref(),
-            self.ek.as_ref(),
-            msg2.ct.as_ref(),
-            &self.initiator_nonce,
-            &msg2.responder_nonce,
-        );
+        // Derive session key from full transcript (ordered by message flow)
+        let session_key = {
+            let mut h = CS::Hash::new();
+            h.update(b"shortcake-session-key-v1");
+            h.update((self.ek.as_ref().len() as u64).to_be_bytes());
+            h.update(self.ek.as_ref());
+            h.update((msg2.ct.as_ref().len() as u64).to_be_bytes());
+            h.update(msg2.ct.as_ref());
+            h.update(msg2.responder_nonce);
+            h.update(self.initiator_nonce);
+            h.update((kem_ss.as_ref().len() as u64).to_be_bytes());
+            h.update(kem_ss.as_ref());
+            h.finalize()
+        };
         kem_ss.zeroize();
 
         // Compute SAS
