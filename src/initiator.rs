@@ -27,103 +27,19 @@ use crate::Nonce;
 
 /// The first protocol message (Initiator -> Responder).
 #[derive(Clone)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "<CS::Kem as Kem>::EncapsulationKey: serde::Serialize",
+        deserialize = "<CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>",
+    ))
+)]
 pub struct MessageOne<CS: CipherSuite> {
     /// The Initiator's encapsulation (public) key.
     pub(crate) ek: <CS::Kem as Kem>::EncapsulationKey,
     /// Commitment to the encapsulation key and nonce.
     pub(crate) commitment: Output<CS::Hash>,
-}
-
-#[cfg(feature = "serde")]
-impl<CS: CipherSuite> serde::Serialize for MessageOne<CS>
-where
-    <CS::Kem as Kem>::EncapsulationKey: serde::Serialize,
-{
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("MessageOne", 2)?;
-        s.serialize_field("ek", &self.ek)?;
-        s.serialize_field("commitment", self.commitment.as_slice())?;
-        s.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, CS: CipherSuite> serde::Deserialize<'de> for MessageOne<CS>
-where
-    <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
-{
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use digest::OutputSizeUser;
-
-        struct MessageOneVisitor<CS>(core::marker::PhantomData<CS>);
-        impl<'de, CS: CipherSuite> serde::de::Visitor<'de> for MessageOneVisitor<CS>
-        where
-            <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
-        {
-            type Value = MessageOne<CS>;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(f, "MessageOne struct with ek and commitment fields")
-            }
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                let ek = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let commitment_bytes: &[u8] = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                let expected_len = <CS::Hash as OutputSizeUser>::output_size();
-                if commitment_bytes.len() != expected_len {
-                    return Err(serde::de::Error::invalid_length(
-                        commitment_bytes.len(),
-                        &self,
-                    ));
-                }
-                let mut commitment = Output::<CS::Hash>::default();
-                commitment.copy_from_slice(commitment_bytes);
-                Ok(MessageOne { ek, commitment })
-            }
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> Result<Self::Value, A::Error> {
-                let mut ek = None;
-                let mut commitment = None;
-                while let Some(key) = map.next_key::<&str>()? {
-                    match key {
-                        "ek" => {
-                            ek = Some(map.next_value()?);
-                        }
-                        "commitment" => {
-                            let bytes: &[u8] = map.next_value()?;
-                            let expected_len = <CS::Hash as OutputSizeUser>::output_size();
-                            if bytes.len() != expected_len {
-                                return Err(serde::de::Error::invalid_length(bytes.len(), &self));
-                            }
-                            let mut c = Output::<CS::Hash>::default();
-                            c.copy_from_slice(bytes);
-                            commitment = Some(c);
-                        }
-                        _ => {
-                            let _ = map.next_value::<serde::de::IgnoredAny>()?;
-                        }
-                    }
-                }
-                let ek = ek.ok_or_else(|| serde::de::Error::missing_field("ek"))?;
-                let commitment =
-                    commitment.ok_or_else(|| serde::de::Error::missing_field("commitment"))?;
-                Ok(MessageOne { ek, commitment })
-            }
-        }
-        deserializer.deserialize_struct(
-            "MessageOne",
-            &["ek", "commitment"],
-            MessageOneVisitor(core::marker::PhantomData),
-        )
-    }
 }
 
 /// The third protocol message (Initiator -> Responder).
@@ -139,6 +55,14 @@ pub struct MessageThree {
 /// and produces the first protocol message. Call [`Initiator::finish`] after
 /// receiving the responder's reply to obtain a [`ProtocolOutput`] and the
 /// final protocol message.
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "<CS::Kem as Kem>::DecapsulationKey: serde::Serialize, <CS::Kem as Kem>::EncapsulationKey: serde::Serialize",
+        deserialize = "<CS::Kem as Kem>::DecapsulationKey: serde::Deserialize<'de>, <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>",
+    ))
+)]
 pub struct Initiator<CS: CipherSuite> {
     dk: <CS::Kem as Kem>::DecapsulationKey,
     ek: <CS::Kem as Kem>::EncapsulationKey,
@@ -229,104 +153,5 @@ impl<CS: CipherSuite> Initiator<CS> {
         };
 
         Ok((output, message))
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<CS: CipherSuite> serde::Serialize for Initiator<CS>
-where
-    <CS::Kem as Kem>::DecapsulationKey: serde::Serialize,
-    <CS::Kem as Kem>::EncapsulationKey: serde::Serialize,
-{
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("Initiator", 3)?;
-        s.serialize_field("dk", &self.dk)?;
-        s.serialize_field("ek", &self.ek)?;
-        s.serialize_field("initiator_nonce", &self.initiator_nonce)?;
-        s.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, CS: CipherSuite> serde::Deserialize<'de> for Initiator<CS>
-where
-    <CS::Kem as Kem>::DecapsulationKey: serde::Deserialize<'de>,
-    <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
-{
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct InitiatorVisitor<CS>(core::marker::PhantomData<CS>);
-        impl<'de, CS: CipherSuite> serde::de::Visitor<'de> for InitiatorVisitor<CS>
-        where
-            <CS::Kem as Kem>::DecapsulationKey: serde::Deserialize<'de>,
-            <CS::Kem as Kem>::EncapsulationKey: serde::Deserialize<'de>,
-        {
-            type Value = Initiator<CS>;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(
-                    f,
-                    "Initiator struct with dk, ek, and initiator_nonce fields"
-                )
-            }
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                let dk = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                let ek = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                let initiator_nonce: Nonce = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
-                Ok(Initiator {
-                    dk,
-                    ek,
-                    initiator_nonce,
-                    _marker: PhantomData,
-                })
-            }
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> Result<Self::Value, A::Error> {
-                let mut dk = None;
-                let mut ek = None;
-                let mut initiator_nonce = None;
-                while let Some(key) = map.next_key::<&str>()? {
-                    match key {
-                        "dk" => {
-                            dk = Some(map.next_value()?);
-                        }
-                        "ek" => {
-                            ek = Some(map.next_value()?);
-                        }
-                        "initiator_nonce" => {
-                            initiator_nonce = Some(map.next_value()?);
-                        }
-                        _ => {
-                            let _ = map.next_value::<serde::de::IgnoredAny>()?;
-                        }
-                    }
-                }
-                let dk = dk.ok_or_else(|| serde::de::Error::missing_field("dk"))?;
-                let ek = ek.ok_or_else(|| serde::de::Error::missing_field("ek"))?;
-                let initiator_nonce = initiator_nonce
-                    .ok_or_else(|| serde::de::Error::missing_field("initiator_nonce"))?;
-                Ok(Initiator {
-                    dk,
-                    ek,
-                    initiator_nonce,
-                    _marker: PhantomData,
-                })
-            }
-        }
-        deserializer.deserialize_struct(
-            "Initiator",
-            &["dk", "ek", "initiator_nonce"],
-            InitiatorVisitor(core::marker::PhantomData),
-        )
     }
 }
