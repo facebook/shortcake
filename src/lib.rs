@@ -119,7 +119,6 @@ mod ciphersuite;
 mod commitment;
 mod error;
 mod initiator;
-mod kdf;
 mod responder;
 mod sas;
 mod verification;

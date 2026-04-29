@@ -21,9 +21,8 @@ use zeroize::Zeroize;
 use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
-use crate::kdf::derive_session_key;
 use crate::responder::MessageTwo;
-use crate::sas::compute_sas;
+use crate::sas::{compute_sas, derive_session_key};
 use crate::verification::ProtocolOutput;
 use crate::Nonce;
 
@@ -139,11 +138,11 @@ impl<CS: CipherSuite> Initiator<CS> {
 
         // Derive session key from full transcript
         let session_key = derive_session_key::<CS::Hash>(
-            kem_ss.as_ref(),
             self.ek.as_ref(),
             msg2.ct.as_ref(),
-            &self.initiator_nonce,
             &msg2.responder_nonce,
+            &self.initiator_nonce,
+            kem_ss.as_ref(),
         );
         kem_ss.zeroize();
 
