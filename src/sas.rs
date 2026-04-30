@@ -18,6 +18,18 @@ const SAS_DOMAIN_SEPARATOR: &[u8] = b"shortcake-sas-v1";
 /// Domain separation string for session key derivation.
 const SESSION_KEY_DOMAIN_SEPARATOR: &[u8] = b"shortcake-session-key-v1";
 
+/// Hash a domain separator and a sequence of fields, each length-prefixed
+/// with its byte length as a big-endian u64.
+pub(crate) fn hash_fields<H: Digest>(domain_sep: &[u8], fields: &[&[u8]]) -> Output<H> {
+    let mut h = H::new();
+    h.update(domain_sep);
+    for field in fields {
+        h.update((field.len() as u64).to_be_bytes());
+        h.update(field);
+    }
+    h.finalize()
+}
+
 /// The maximum length of the SAS in bytes, equal to the nonce size.
 pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
 
@@ -66,12 +78,7 @@ pub fn compute_sas<H: Digest>(
     initiator_nonce: &Nonce,
     ct_bytes: &[u8],
 ) -> Sas {
-    let mut hasher = H::new();
-    hasher.update(SAS_DOMAIN_SEPARATOR);
-    hasher.update(initiator_nonce);
-    hasher.update((ct_bytes.len() as u64).to_be_bytes());
-    hasher.update(ct_bytes);
-    let hash = hasher.finalize();
+    let hash = hash_fields::<H>(SAS_DOMAIN_SEPARATOR, &[initiator_nonce, ct_bytes]);
 
     let mut sas = [0u8; SAS_MAX_LEN];
     for i in 0..SAS_MAX_LEN {
@@ -91,19 +98,10 @@ pub fn derive_session_key<H: Digest>(
     initiator_nonce: &Nonce,
     kem_ss: &[u8],
 ) -> Output<H> {
-    let mut h = H::new();
-    h.update(SESSION_KEY_DOMAIN_SEPARATOR);
-    h.update((ek_bytes.len() as u64).to_be_bytes());
-    h.update(ek_bytes);
-    h.update((ct_bytes.len() as u64).to_be_bytes());
-    h.update(ct_bytes);
-    h.update((responder_nonce.len() as u64).to_be_bytes());
-    h.update(responder_nonce);
-    h.update((initiator_nonce.len() as u64).to_be_bytes());
-    h.update(initiator_nonce);
-    h.update((kem_ss.len() as u64).to_be_bytes());
-    h.update(kem_ss);
-    h.finalize()
+    hash_fields::<H>(
+        SESSION_KEY_DOMAIN_SEPARATOR,
+        &[ek_bytes, ct_bytes, responder_nonce, initiator_nonce, kem_ss],
+    )
 }
 
 // Ensure the SAS max length does not exceed the minimum expected hash output size.
