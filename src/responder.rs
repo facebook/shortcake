@@ -21,8 +21,7 @@ use crate::ciphersuite::{CipherSuite, Kem};
 use crate::commitment;
 use crate::error::Error;
 use crate::initiator::{MessageOne, MessageThree};
-use crate::kdf::derive_session_key;
-use crate::sas::compute_sas;
+use crate::sas::{compute_sas, derive_session_key};
 use crate::verification::ProtocolOutput;
 use crate::Nonce;
 
@@ -147,11 +146,11 @@ impl<CS: CipherSuite> Responder<CS> {
             .expect("shared_secret should always be Some");
 
         let session_key = derive_session_key::<CS::Hash>(
-            kem_ss.as_ref(),
             self.ek.as_ref(),
             self.ct.as_ref(),
-            &msg3.initiator_nonce,
             &self.responder_nonce,
+            &msg3.initiator_nonce,
+            kem_ss.as_ref(),
         );
         kem_ss.zeroize();
 
