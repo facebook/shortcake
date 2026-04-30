@@ -6,20 +6,17 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
-//! Short Authenticated String (SAS) derivation.
-//!
-//! The SAS is a value that both parties compute and compare out-of-band
-//! (e.g., by reading digits aloud) to authenticate the exchange.
-//!
-//! The library computes the full-length SAS ([`SAS_MAX_LEN`] bytes) and
-//! returns it to the caller, who can truncate to any desired prefix length.
+//! SAS and session key derivation.
 
-use digest::Digest;
+use digest::{Digest, Output};
 
 use crate::Nonce;
 
 /// Domain separation string for SAS derivation.
 const SAS_DOMAIN_SEPARATOR: &[u8] = b"shortcake-sas-v1";
+
+/// Domain separation string for session key derivation.
+const SESSION_KEY_DOMAIN_SEPARATOR: &[u8] = b"shortcake-session-key-v1";
 
 /// The maximum length of the SAS in bytes, equal to the nonce size.
 pub const SAS_MAX_LEN: usize = core::mem::size_of::<Nonce>();
@@ -81,6 +78,32 @@ pub fn compute_sas<H: Digest>(
         sas[i] = responder_nonce[i] ^ hash[i];
     }
     Sas(sas)
+}
+
+/// Derive a session key from the full protocol transcript.
+///
+/// Inputs are ordered by protocol message flow:
+/// `Hash(domain_sep || ek || ct || responder_nonce || initiator_nonce || kem_ss)`
+pub fn derive_session_key<H: Digest>(
+    ek_bytes: &[u8],
+    ct_bytes: &[u8],
+    responder_nonce: &Nonce,
+    initiator_nonce: &Nonce,
+    kem_ss: &[u8],
+) -> Output<H> {
+    let mut h = H::new();
+    h.update(SESSION_KEY_DOMAIN_SEPARATOR);
+    h.update((ek_bytes.len() as u64).to_be_bytes());
+    h.update(ek_bytes);
+    h.update((ct_bytes.len() as u64).to_be_bytes());
+    h.update(ct_bytes);
+    h.update((responder_nonce.len() as u64).to_be_bytes());
+    h.update(responder_nonce);
+    h.update((initiator_nonce.len() as u64).to_be_bytes());
+    h.update(initiator_nonce);
+    h.update((kem_ss.len() as u64).to_be_bytes());
+    h.update(kem_ss);
+    h.finalize()
 }
 
 // Ensure the SAS max length does not exceed the minimum expected hash output size.
