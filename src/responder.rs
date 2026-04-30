@@ -63,6 +63,7 @@ pub struct Responder<CS: CipherSuite> {
     ct: <CS::Kem as Kem>::Ciphertext,
     /// Wrapped in `Option` so the consuming method can `.take()` the value
     /// before `self` is dropped (Drop still zeroizes if present).
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "require_some"))]
     shared_secret: Option<<CS::Kem as Kem>::SharedSecret>,
     _marker: PhantomData<CS>,
 }
@@ -161,4 +162,18 @@ impl<CS: CipherSuite> Responder<CS> {
             _marker: PhantomData,
         })
     }
+}
+
+#[cfg(feature = "serde")]
+fn require_some<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::Deserialize;
+    let val = Option::<T>::deserialize(deserializer)?;
+    if val.is_none() {
+        return Err(serde::de::Error::custom("shared_secret must not be None"));
+    }
+    Ok(val)
 }
