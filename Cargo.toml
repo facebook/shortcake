@@ -38,6 +38,7 @@ criterion = "0.5"
 getrandom = { version = "0.4", features = ["sys_rng"] }
 hex = "0.4"
 postcard = { version = "1", features = ["alloc"] }
+rand_chacha = "0.10"
 
 [[example]]
 name = "protocol"

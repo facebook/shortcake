@@ -33,6 +33,7 @@ use crate::sas::Sas;
 /// their SAS codes match. Using the key before out-of-band verification
 /// provides no authentication guarantee — an active attacker could have
 /// substituted their own key material.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ProtocolOutput<CS: CipherSuite> {
     pub(crate) sas: Sas,
     pub(crate) session_key: Output<CS::Hash>,
