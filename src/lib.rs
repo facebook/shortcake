@@ -24,12 +24,7 @@
 //!
 //! The protocol is generic over a [`CipherSuite`] that bundles a KEM and hash
 //! function. Enable the `xwing` feature for a ready-to-use ciphersuite using
-//! the X-Wing hybrid KEM (X25519 + ML-KEM-768) and SHA3-256:
-//!
-//! ```toml
-//! [dependencies]
-//! shortcake = { version = "0.1.0-pre.3", features = ["xwing"] }
-//! ```
+//! the X-Wing hybrid KEM (X25519 + ML-KEM-768) and SHA3-256.
 //!
 //! We will use [`XWingSha3`] in the examples below.
 //!
