@@ -31,7 +31,7 @@ getrandom = { version = "0.4", features = ["sys_rng"], optional = true }
 
 # Optional dependencies for xwing ciphersuite
 x-wing = { version = "0.1.0-rc.0", default-features = false, features = ["zeroize"], optional = true }
-sha3 = { version = "0.11.0-rc.9", default-features = false, optional = true }
+sha3 = { version = "0.12.0", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
