@@ -495,4 +495,56 @@ mod tests {
         p384_tests,
         97
     );
+
+    // RFC 9180 Appendix A.3.1 — DHKEM(P-256, HKDF-SHA256) Base mode
+    #[cfg(feature = "dhkem-p256")]
+    #[test]
+    fn rfc9180_p256_extract_and_expand() {
+        use elliptic_curve::sec1::ToSec1Point;
+
+        let sk_em = hex::decode(
+            "4995788ef4b9d6132b249ce59a77281493eb39af373d236a1fe415cb0c2d7beb",
+        )
+        .unwrap();
+        let pk_rm = hex::decode(
+            "04fe8c19ce0905191ebc298a9245792531f26f0cece2460639e8bc39cb7f706a82\
+             6a779b4cf969b8a0e539c7f62fb3d30ad6aa8f80e30f1d128aafd68a2ce72ea0",
+        )
+        .unwrap();
+        let expected_shared_secret = hex::decode(
+            "c0d26aeab536609a572b07695d933b589dcf363ff9d93c93adea537aeabb8cb8",
+        )
+        .unwrap();
+
+        // Compute raw DH shared secret
+        let scalar =
+            NonZeroScalar::<p256::NistP256>::try_from(sk_em.as_slice()).unwrap();
+        let pk = PublicKey::<p256::NistP256>::from_sec1_bytes(&pk_rm).unwrap();
+        let dh = ecdh::diffie_hellman(&scalar, pk.as_affine());
+
+        // Build kem_context = enc || pkRm
+        // In Base mode, enc = pkEm = public key of ephemeral scalar
+        let pk_em = PublicKey::<p256::NistP256>::from_secret_scalar(&scalar);
+        let enc = pk_em.as_affine().to_sec1_point(false);
+
+        let mut kem_context = [0u8; 130];
+        kem_context[..65].copy_from_slice(enc.as_bytes());
+        kem_context[65..].copy_from_slice(&pk_rm);
+
+        // Run ExtractAndExpand
+        let suite_id = b"KEM\x00\x10";
+        let mut ss = [0u8; 32];
+        extract_and_expand::<sha2::Sha256>(
+            suite_id,
+            dh.raw_secret_bytes(),
+            &kem_context,
+            &mut ss,
+        );
+
+        assert_eq!(
+            ss.as_slice(),
+            expected_shared_secret.as_slice(),
+            "shared_secret does not match RFC 9180 test vector"
+        );
+    }
 }
