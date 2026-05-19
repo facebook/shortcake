@@ -92,6 +92,7 @@ impl<CS: CipherSuite> Initiator<CS> {
     /// # Returns
     ///
     /// A tuple of (initiator_state, first_message).
+    #[must_use]
     pub fn start(rng: &mut impl CryptoRng) -> (Self, MessageOne<CS>) {
         let (dk, ek) = CS::Kem::generate(rng);
 
@@ -124,6 +125,7 @@ impl<CS: CipherSuite> Initiator<CS> {
     /// # Returns
     ///
     /// A tuple of (protocol_output, third_message) on success.
+    #[must_use]
     pub fn finish(self, msg2: MessageTwo<CS>) -> Result<(ProtocolOutput<CS>, MessageThree), Error> {
         // Check for reflection attack: ek must not equal ct.
         // For KEMs where ek and ct have different sizes (e.g., X-Wing),

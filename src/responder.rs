@@ -90,6 +90,7 @@ impl<CS: CipherSuite> Responder<CS> {
     /// # Returns
     ///
     /// A tuple of (responder_state, second_message) on success.
+    #[must_use]
     pub fn start(
         rng: &mut impl CryptoRng,
         msg1: MessageOne<CS>,
@@ -130,6 +131,7 @@ impl<CS: CipherSuite> Responder<CS> {
     /// # Returns
     ///
     /// A [`ProtocolOutput`] on success.
+    #[must_use]
     pub fn finish(mut self, msg3: MessageThree) -> Result<ProtocolOutput<CS>, Error> {
         // Verify commitment
         commitment::open::<CS::Hash>(self.ek.as_ref(), &msg3.initiator_nonce, &self.commitment)?;
