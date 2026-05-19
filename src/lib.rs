@@ -138,5 +138,29 @@ pub use xwing::{
     XWingSha3, XWingSharedSecret,
 };
 
+#[cfg(any(feature = "dhkem-p256", feature = "dhkem-p384"))]
+mod dhkem;
+
+#[cfg(feature = "dhkem-p256")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dhkem-p256")))]
+pub use dhkem::{
+    DhkemP256Sha256, P256Ciphertext, P256DecapsulationKey, P256EncapsulationKey, P256Kem,
+    P256SharedSecret,
+};
+
+#[cfg(feature = "dhkem-p384")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dhkem-p384")))]
+pub use dhkem::{
+    DhkemP384Sha384, P384Ciphertext, P384DecapsulationKey, P384EncapsulationKey, P384Kem,
+    P384SharedSecret,
+};
+
+#[cfg(any(feature = "dhkem-p256", feature = "dhkem-p384"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "dhkem-p256", feature = "dhkem-p384")))
+)]
+pub use dhkem::DhKemError;
+
 /// 32-byte nonce used in the protocol.
 pub type Nonce = [u8; 32];
