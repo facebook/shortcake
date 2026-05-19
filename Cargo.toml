@@ -19,6 +19,9 @@ std = []
 serde = ["dep:serde", "dep:hybrid-array"]
 getrandom = ["dep:getrandom"]
 xwing = ["dep:x-wing", "dep:sha3"]
+dhkem-p256 = ["dep:elliptic-curve", "dep:hkdf", "dep:p256", "dep:sha2"]
+dhkem-p384 = ["dep:elliptic-curve", "dep:hkdf", "dep:p384", "dep:sha2"]
+dhkem-p521 = ["dep:elliptic-curve", "dep:hkdf", "dep:p521", "dep:sha2"]
 
 [dependencies]
 digest = { version = "0.11.2", default-features = false }
@@ -32,6 +35,14 @@ getrandom = { version = "0.4", features = ["sys_rng"], optional = true }
 # Optional dependencies for xwing ciphersuite
 x-wing = { version = "0.1.0-rc.0", default-features = false, features = ["zeroize"], optional = true }
 sha3 = { version = "0.11.0-rc.9", default-features = false, optional = true }
+
+# Optional dependencies for DHKEM ciphersuites (RFC 9180)
+elliptic-curve = { version = "0.14.0-rc", default-features = false, features = ["ecdh", "sec1"], optional = true }
+hkdf = { version = "0.13", default-features = false, optional = true }
+p256 = { version = "0.14.0-rc", default-features = false, features = ["ecdh"], optional = true }
+p384 = { version = "0.14.0-rc", default-features = false, features = ["ecdh"], optional = true }
+p521 = { version = "0.14.0-rc", default-features = false, features = ["ecdh"], optional = true }
+sha2 = { version = "0.11", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
