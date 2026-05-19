@@ -392,3 +392,107 @@ dhkem_ciphersuite! {
     kem_doc = "DHKEM(P-384, HKDF-SHA384)",
     suite_doc = "DHKEM(P-384, HKDF-SHA384) + SHA-384 ciphersuite.",
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_core::UnwrapErr;
+
+    fn test_rng() -> UnwrapErr<getrandom::SysRng> {
+        UnwrapErr(getrandom::SysRng)
+    }
+
+    macro_rules! dhkem_tests {
+        ($kem:ty, $ek_type:ty, $ct_type:ty, $mod_name:ident, $ek_size:expr) => {
+            mod $mod_name {
+                use super::*;
+
+                #[test]
+                fn kem_roundtrip() {
+                    let mut rng = test_rng();
+                    let (dk, ek) = <$kem>::generate(&mut rng);
+                    let (ct, ss1) = <$kem>::encaps(&ek, &mut rng).unwrap();
+                    let ss2 = <$kem>::decaps(&dk, &ct).unwrap();
+                    assert_eq!(ss1.as_ref(), ss2.as_ref());
+                }
+
+                #[test]
+                fn key_serialization_roundtrip() {
+                    let mut rng = test_rng();
+                    let (dk, ek) = <$kem>::generate(&mut rng);
+
+                    let ek_bytes = ek.as_bytes();
+                    let ek2 = <$ek_type>::from_bytes(ek_bytes).unwrap();
+                    assert_eq!(ek.as_ref(), ek2.as_ref());
+
+                    let (ct, ss1) = <$kem>::encaps(&ek2, &mut rng).unwrap();
+                    let ss2 = <$kem>::decaps(&dk, &ct).unwrap();
+                    assert_eq!(ss1.as_ref(), ss2.as_ref());
+                }
+
+                #[test]
+                fn ciphertext_serialization_roundtrip() {
+                    let mut rng = test_rng();
+                    let (dk, ek) = <$kem>::generate(&mut rng);
+                    let (ct, ss1) = <$kem>::encaps(&ek, &mut rng).unwrap();
+
+                    let ct_bytes = ct.as_bytes();
+                    let ct2 = <$ct_type>::from_bytes(ct_bytes).unwrap();
+
+                    let ss2 = <$kem>::decaps(&dk, &ct2).unwrap();
+                    assert_eq!(ss1.as_ref(), ss2.as_ref());
+                }
+
+                #[test]
+                fn wrong_length_rejected() {
+                    assert!(<$ek_type>::from_bytes(&[0u8; 32]).is_none());
+                    assert!(<$ct_type>::from_bytes(&[0u8; 32]).is_none());
+                }
+
+                #[test]
+                fn invalid_point_rejected() {
+                    let mut rng = test_rng();
+                    let (dk, ek) = <$kem>::generate(&mut rng);
+
+                    // All-zero bytes are not a valid SEC1 point
+                    let bad_ek = <$ek_type>::from_bytes(&[0u8; $ek_size]).unwrap();
+                    assert!(<$kem>::encaps(&bad_ek, &mut rng).is_err());
+
+                    let bad_ct = <$ct_type>::from_bytes(&[0u8; $ek_size]).unwrap();
+                    assert!(<$kem>::decaps(&dk, &bad_ct).is_err());
+
+                    let _ = ek;
+                }
+
+                #[test]
+                fn different_keypairs_produce_different_shared_secrets() {
+                    let mut rng = test_rng();
+                    let (_dk1, ek1) = <$kem>::generate(&mut rng);
+                    let (_dk2, ek2) = <$kem>::generate(&mut rng);
+
+                    let (_, ss1) = <$kem>::encaps(&ek1, &mut rng).unwrap();
+                    let (_, ss2) = <$kem>::encaps(&ek2, &mut rng).unwrap();
+                    assert_ne!(ss1.as_ref(), ss2.as_ref());
+                }
+            }
+        };
+    }
+
+    #[cfg(feature = "dhkem-p256")]
+    dhkem_tests!(
+        P256Kem,
+        P256EncapsulationKey,
+        P256Ciphertext,
+        p256_tests,
+        65
+    );
+
+    #[cfg(feature = "dhkem-p384")]
+    dhkem_tests!(
+        P384Kem,
+        P384EncapsulationKey,
+        P384Ciphertext,
+        p384_tests,
+        97
+    );
+}
