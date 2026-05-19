@@ -45,6 +45,7 @@ impl<CS: CipherSuite> ProtocolOutput<CS> {
     ///
     /// Consumers should truncate this to their desired comparison
     /// length (e.g., `&sas_code[..5]` for 40-bit security).
+    #[must_use]
     pub fn sas_code(&self) -> &[u8] {
         self.sas.as_bytes()
     }
@@ -58,6 +59,7 @@ impl<CS: CipherSuite> ProtocolOutput<CS> {
     /// Using the key before verification provides no authentication
     /// guarantee — an active attacker could have substituted their own
     /// key material.
+    #[must_use]
     pub fn into_session_key(mut self) -> Output<CS::Hash> {
         let mut key = Output::<CS::Hash>::default();
         core::mem::swap(&mut key, &mut self.session_key);

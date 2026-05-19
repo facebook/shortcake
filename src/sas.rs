@@ -51,6 +51,7 @@ impl Sas {
     /// Returns the full raw SAS bytes.
     ///
     /// Truncate to a prefix of the desired length before displaying.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8; SAS_MAX_LEN] {
         &self.0
     }
