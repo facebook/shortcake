@@ -6,17 +6,20 @@
 // of this source tree. You may select, at your option, one of the above-listed
 // licenses.
 
-//! Serialization round-trip tests for X-Wing types.
-
-#![cfg(feature = "xwing")]
+//! Serialization round-trip tests.
 
 use rand_core::UnwrapErr;
-use shortcake::{Kem, XWingCiphertext, XWingDecapsulationKey, XWingEncapsulationKey, XWingKem};
+
+#[cfg(feature = "xwing")]
+use shortcake::{XWingCiphertext, XWingDecapsulationKey, XWingEncapsulationKey, XWingKem};
+
+use shortcake::Kem;
 
 fn test_rng() -> UnwrapErr<getrandom::SysRng> {
     UnwrapErr(getrandom::SysRng)
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_encapsulation_key_roundtrip() {
     let mut rng = test_rng();
@@ -28,6 +31,7 @@ fn test_encapsulation_key_roundtrip() {
     assert_eq!(ek.as_ref(), ek2.as_ref());
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_decapsulation_key_deterministic_from_seed() {
     let seed = [42u8; 32];
@@ -39,6 +43,7 @@ fn test_decapsulation_key_deterministic_from_seed() {
     );
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_ciphertext_roundtrip() {
     let mut rng = test_rng();
@@ -53,6 +58,7 @@ fn test_ciphertext_roundtrip() {
     assert_eq!(ss1.as_ref(), ss2.as_ref());
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_encapsulation_key_as_ref() {
     let mut rng = test_rng();
@@ -62,6 +68,7 @@ fn test_encapsulation_key_as_ref() {
     assert_eq!(as_ref_bytes.len(), 1216);
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_ciphertext_as_ref() {
     let mut rng = test_rng();
@@ -72,12 +79,14 @@ fn test_ciphertext_as_ref() {
     assert_eq!(as_ref_bytes.len(), 1120);
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_wrong_length_rejected() {
     assert!(XWingEncapsulationKey::from_bytes(&[0u8; 32]).is_none());
     assert!(XWingCiphertext::from_bytes(&[0u8; 32]).is_none());
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_shared_secret_as_ref() {
     let mut rng = test_rng();
@@ -93,6 +102,7 @@ fn test_shared_secret_as_ref() {
     );
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_kem_encaps_decaps_serialization_roundtrip() {
     let mut rng = test_rng();
@@ -117,7 +127,7 @@ fn test_kem_encaps_decaps_serialization_roundtrip() {
     assert_eq!(ss1.as_ref(), ss2.as_ref());
 }
 
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 mod serde_tests {
     use rand_core::UnwrapErr;
     use shortcake::{Initiator, Responder, XWingSha3};
@@ -204,3 +214,53 @@ mod serde_tests {
         );
     }
 }
+
+#[cfg(feature = "serde")]
+macro_rules! dhkem_serde_tests {
+    ($suite:ty, $mod_name:ident) => {
+        mod $mod_name {
+            use rand_core::UnwrapErr;
+            use shortcake::{Initiator, Responder};
+
+            fn test_rng() -> UnwrapErr<getrandom::SysRng> {
+                UnwrapErr(getrandom::SysRng)
+            }
+
+            #[test]
+            fn initiator_serde_roundtrip() {
+                let mut rng = test_rng();
+                let (initiator, msg1) = Initiator::<$suite>::start(&mut rng);
+
+                let bytes = postcard::to_allocvec(&initiator).unwrap();
+                let initiator: Initiator<$suite> = postcard::from_bytes(&bytes).unwrap();
+
+                let (responder, msg2) = Responder::<$suite>::start(&mut rng, msg1).unwrap();
+                let (i_output, msg3) = initiator.finish(msg2).unwrap();
+                let r_output = responder.finish(msg3).unwrap();
+
+                assert_eq!(i_output.sas_code(), r_output.sas_code());
+            }
+
+            #[test]
+            fn responder_serde_roundtrip() {
+                let mut rng = test_rng();
+                let (initiator, msg1) = Initiator::<$suite>::start(&mut rng);
+                let (responder, msg2) = Responder::<$suite>::start(&mut rng, msg1).unwrap();
+
+                let bytes = postcard::to_allocvec(&responder).unwrap();
+                let responder: Responder<$suite> = postcard::from_bytes(&bytes).unwrap();
+
+                let (i_output, msg3) = initiator.finish(msg2).unwrap();
+                let r_output = responder.finish(msg3).unwrap();
+
+                assert_eq!(i_output.sas_code(), r_output.sas_code());
+            }
+        }
+    };
+}
+
+#[cfg(all(feature = "serde", feature = "dhkem-p256"))]
+dhkem_serde_tests!(shortcake::DhkemP256Sha256, dhkem_p256_serde);
+
+#[cfg(all(feature = "serde", feature = "dhkem-p384"))]
+dhkem_serde_tests!(shortcake::DhkemP384Sha384, dhkem_p384_serde);

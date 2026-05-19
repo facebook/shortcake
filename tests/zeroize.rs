@@ -8,19 +8,21 @@
 
 //! Tests that secret types are properly zeroed on drop.
 
-#![cfg(feature = "xwing")]
-
 use core::mem::ManuallyDrop;
 use core::ptr;
 
 use rand_core::UnwrapErr;
-use shortcake::{Initiator, Kem, Responder, XWingDecapsulationKey, XWingKem, XWingSha3};
+use shortcake::{Initiator, Kem, Responder};
 use zeroize::Zeroize;
+
+#[cfg(feature = "xwing")]
+use shortcake::{XWingDecapsulationKey, XWingKem, XWingSha3};
 
 fn test_rng() -> UnwrapErr<getrandom::SysRng> {
     UnwrapErr(getrandom::SysRng)
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_decapsulation_key_zeroize() {
     let mut rng = test_rng();
@@ -44,6 +46,7 @@ fn test_decapsulation_key_zeroize() {
     );
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_shared_secret_zeroize_on_drop() {
     let mut rng = test_rng();
@@ -71,6 +74,7 @@ fn test_shared_secret_zeroize_on_drop() {
     );
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_initiator_zeroize_on_drop() {
     let mut rng = test_rng();
@@ -105,6 +109,7 @@ fn test_initiator_zeroize_on_drop() {
     );
 }
 
+#[cfg(feature = "xwing")]
 #[test]
 fn test_responder_zeroize_on_drop() {
     let mut rng = test_rng();
@@ -137,3 +142,74 @@ fn test_responder_zeroize_on_drop() {
         "Responder bytes should change after drop"
     );
 }
+
+macro_rules! dhkem_zeroize_tests {
+    ($suite:ty, $kem:ty, $ss_size:expr, $mod_name:ident) => {
+        mod $mod_name {
+            use super::*;
+
+            #[test]
+            fn decapsulation_key_zeroize() {
+                let mut rng = test_rng();
+                let (mut dk, _ek) = <$kem>::generate(&mut rng);
+
+                let size = core::mem::size_of_val(&dk);
+                let raw_ptr = &dk as *const _ as *const u8;
+                let bytes_before: Vec<u8> = (0..size)
+                    .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
+                    .collect();
+                assert!(bytes_before.iter().any(|&b| b != 0));
+
+                dk.zeroize();
+
+                let bytes_after: Vec<u8> = (0..size)
+                    .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
+                    .collect();
+                assert_ne!(bytes_before, bytes_after, "DK bytes should change after zeroize");
+            }
+
+            #[test]
+            fn shared_secret_zeroize_on_drop() {
+                let mut rng = test_rng();
+                let (_dk, ek) = <$kem>::generate(&mut rng);
+                let (_ct, ss) = <$kem>::encaps(&ek, &mut rng).unwrap();
+                let mut ss = ManuallyDrop::new(ss);
+
+                assert!(ss.as_ref().iter().any(|&b| b != 0));
+
+                let raw_ptr = &*ss as *const _ as *const [u8; $ss_size];
+                unsafe { ptr::drop_in_place(&mut *ss) };
+
+                let raw_bytes = unsafe { ptr::read_volatile(raw_ptr) };
+                assert_eq!(raw_bytes, [0u8; $ss_size], "SS should be zeroed after drop");
+            }
+
+            #[test]
+            fn initiator_zeroize_on_drop() {
+                let mut rng = test_rng();
+                let (state, _msg) = Initiator::<$suite>::start(&mut rng);
+                let mut state = ManuallyDrop::new(state);
+
+                let size = core::mem::size_of_val(&*state);
+                let raw_ptr = &*state as *const _ as *const u8;
+                let bytes_before: Vec<u8> = (0..size)
+                    .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
+                    .collect();
+                assert!(bytes_before.iter().any(|&b| b != 0));
+
+                unsafe { ptr::drop_in_place(&mut *state) };
+
+                let bytes_after: Vec<u8> = (0..size)
+                    .map(|i| unsafe { ptr::read_volatile(raw_ptr.add(i)) })
+                    .collect();
+                assert_ne!(bytes_before, bytes_after, "Initiator bytes should change after drop");
+            }
+        }
+    };
+}
+
+#[cfg(feature = "dhkem-p256")]
+dhkem_zeroize_tests!(shortcake::DhkemP256Sha256, shortcake::P256Kem, 32, dhkem_p256_zeroize);
+
+#[cfg(feature = "dhkem-p384")]
+dhkem_zeroize_tests!(shortcake::DhkemP384Sha384, shortcake::P384Kem, 48, dhkem_p384_zeroize);
