@@ -116,6 +116,7 @@ mod error;
 mod initiator;
 mod responder;
 mod sas;
+mod util;
 mod verification;
 
 pub use ciphersuite::{CipherSuite, Kem};
