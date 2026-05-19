@@ -18,14 +18,55 @@
 //!     cargo test --all-features -- generate_test_vectors
 //! ```
 
-#![cfg(feature = "xwing")]
-
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use shortcake::{Initiator, Responder, XWingSha3};
+use shortcake::{Initiator, Responder};
+
+#[cfg(feature = "xwing")]
+use shortcake::XWingSha3;
 
 fn test_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed([0u8; 32])
+}
+
+macro_rules! pinned_vector_tests {
+    ($suite:ty, $vectors_file:expr, $mod_name:ident) => {
+        mod $mod_name {
+            use super::*;
+
+            #[test]
+            fn pinned_sas() {
+                let mut rng = test_rng();
+                let (initiator, msg1) = Initiator::<$suite>::start(&mut rng);
+                let (responder, msg2) = Responder::<$suite>::start(&mut rng, msg1).unwrap();
+                let (i_output, msg3) = initiator.finish(msg2).unwrap();
+                let r_output = responder.finish(msg3).unwrap();
+
+                let i_sas = hex::encode(i_output.sas_code());
+                let r_sas = hex::encode(r_output.sas_code());
+                assert_eq!(i_sas, r_sas, "SAS mismatch between Initiator and Responder");
+
+                let vectors = parse_vectors(include_str!($vectors_file));
+                assert_pinned("sas", &i_sas, &vectors);
+            }
+
+            #[test]
+            fn pinned_session_key() {
+                let mut rng = test_rng();
+                let (initiator, msg1) = Initiator::<$suite>::start(&mut rng);
+                let (responder, msg2) = Responder::<$suite>::start(&mut rng, msg1).unwrap();
+                let (i_output, msg3) = initiator.finish(msg2).unwrap();
+                let r_output = responder.finish(msg3).unwrap();
+
+                let i_key = i_output.into_session_key();
+                let r_key = r_output.into_session_key();
+                assert_eq!(i_key.as_slice(), r_key.as_slice());
+
+                let vectors = parse_vectors(include_str!($vectors_file));
+                assert_pinned("session_key", &hex::encode(i_key.as_slice()), &vectors);
+            }
+        }
+    };
 }
 
 fn parse_vectors(s: &str) -> Vec<(&str, &str)> {
@@ -54,9 +95,24 @@ fn assert_pinned(key: &str, actual: &str, vectors: &[(&str, &str)]) {
     );
 }
 
-// === Tests without serde (run with just --features xwing) ===
+#[cfg(feature = "dhkem-p256")]
+pinned_vector_tests!(
+    shortcake::DhkemP256Sha256,
+    "dhkem_p256_test_vectors.txt",
+    dhkem_p256_vectors
+);
+
+#[cfg(feature = "dhkem-p384")]
+pinned_vector_tests!(
+    shortcake::DhkemP384Sha384,
+    "dhkem_p384_test_vectors.txt",
+    dhkem_p384_vectors
+);
+
+// === XWing tests (original, kept for backwards compatibility) ===
 
 /// Checks SAS against pinned value.
+#[cfg(feature = "xwing")]
 #[test]
 fn test_pinned_sas() {
     let mut rng = test_rng();
@@ -74,6 +130,7 @@ fn test_pinned_sas() {
 }
 
 /// Checks session key against pinned value.
+#[cfg(feature = "xwing")]
 #[test]
 fn test_pinned_session_key() {
     let mut rng = test_rng();
@@ -97,7 +154,7 @@ fn test_pinned_session_key() {
 // === Tests with serde (run with --all-features) ===
 
 /// Checks serialized MessageOne (ek + commitment) against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_msg1() {
     let mut rng = test_rng();
@@ -111,7 +168,7 @@ fn test_pinned_msg1() {
 }
 
 /// Checks serialized MessageTwo (ct + responder_nonce) against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_msg2() {
     let mut rng = test_rng();
@@ -126,7 +183,7 @@ fn test_pinned_msg2() {
 }
 
 /// Checks serialized MessageThree (initiator_nonce) against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_msg3() {
     let mut rng = test_rng();
@@ -142,7 +199,7 @@ fn test_pinned_msg3() {
 }
 
 /// Checks serialized Initiator state against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_initiator_state() {
     let mut rng = test_rng();
@@ -156,7 +213,7 @@ fn test_pinned_initiator_state() {
 }
 
 /// Checks serialized Responder state against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_responder_state() {
     let mut rng = test_rng();
@@ -171,7 +228,7 @@ fn test_pinned_responder_state() {
 }
 
 /// Checks serialized initiator ProtocolOutput against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_initiator_output() {
     let mut rng = test_rng();
@@ -187,7 +244,7 @@ fn test_pinned_initiator_output() {
 }
 
 /// Checks serialized responder ProtocolOutput against pinned value.
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn test_pinned_responder_output() {
     let mut rng = test_rng();
@@ -205,7 +262,7 @@ fn test_pinned_responder_output() {
 
 // === Generator ===
 
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "xwing"))]
 #[test]
 fn generate_test_vectors() {
     let mut rng = test_rng();

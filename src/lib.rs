@@ -101,8 +101,12 @@
 //!
 //! # Features
 //!
-//! - `xwing` — Ready-to-use ciphersuite using X-Wing (X25519 + ML-KEM-768)
-//!   and SHA3-256, providing both classical and post-quantum security.
+//! - `xwing` — Ciphersuite using X-Wing (X25519 + ML-KEM-768) and SHA3-256,
+//!   providing both classical and post-quantum security.
+//! - `dhkem-p256` — Ciphersuite using DHKEM(P-256, HKDF-SHA256) per RFC 9180
+//!   and SHA-256, at the 128-bit security level.
+//! - `dhkem-p384` — Ciphersuite using DHKEM(P-384, HKDF-SHA384) per RFC 9180
+//!   and SHA-384, at the 192-bit security level.
 //! - `std` — Enable `std::error::Error` impl for the error type (disabled
 //!   by default for `no_std`).
 
@@ -116,6 +120,7 @@ mod error;
 mod initiator;
 mod responder;
 mod sas;
+mod util;
 mod verification;
 
 pub use ciphersuite::{CipherSuite, Kem};
@@ -136,6 +141,30 @@ pub use xwing::{
     XWingCiphertext, XWingDecapsulationKey, XWingEncapsulationKey, XWingKem, XWingKemError,
     XWingSha3, XWingSharedSecret,
 };
+
+#[cfg(any(feature = "dhkem-p256", feature = "dhkem-p384"))]
+mod dhkem;
+
+#[cfg(feature = "dhkem-p256")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dhkem-p256")))]
+pub use dhkem::{
+    DhkemP256Sha256, P256Ciphertext, P256DecapsulationKey, P256EncapsulationKey, P256Kem,
+    P256SharedSecret,
+};
+
+#[cfg(feature = "dhkem-p384")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dhkem-p384")))]
+pub use dhkem::{
+    DhkemP384Sha384, P384Ciphertext, P384DecapsulationKey, P384EncapsulationKey, P384Kem,
+    P384SharedSecret,
+};
+
+#[cfg(any(feature = "dhkem-p256", feature = "dhkem-p384"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "dhkem-p256", feature = "dhkem-p384")))
+)]
+pub use dhkem::DhKemError;
 
 /// 32-byte nonce used in the protocol.
 pub type Nonce = [u8; 32];

@@ -1,0 +1,5 @@
+# Shortcake DhkemP384Sha384 test vectors (auto-generated)
+# RNG: ChaCha20Rng seeded with [0u8; 32]
+
+sas: 9593d3d7dec9da7594bcffdd079f500d01e85c3fc08436a579fc3ccc6b618a72
+session_key: b142bc2b1e34f15bfdda70e7b37358fb3a6179728b5c9259516d8c264b492cf17d7dd0b8beaba27fff636ee4371a5c50

@@ -21,7 +21,7 @@ shortcake = "0.1.0-pre.4"
 Contributors
 ------------
 
-The authors of this code are Kevin Lewi ([@kevinlewi](https://github.com/kevinlewi)) and Spencer Peters ([@spencerpeters](https://github.com/spencerpeters)).
+The authors of this code are Kevin Lewi ([@kevinlewi](https://github.com/kevinlewi)), Spencer Peters ([@spencerpeters](https://github.com/spencerpeters)), and Alfie Fresta ([@AlfioEmanueleFresta](https://github.com/AlfioEmanueleFresta)).
 To learn more about contributing to this project, [see this document](./CONTRIBUTING.md).
 
 License
