@@ -126,6 +126,7 @@ pub use initiator::{Initiator, MessageOne, MessageThree};
 pub use rand_core;
 pub use responder::{MessageTwo, Responder};
 pub use verification::ProtocolOutput;
+pub use sas::{Sas, SAS_MAX_LEN};
 
 #[cfg(feature = "xwing")]
 mod xwing;

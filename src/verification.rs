@@ -45,8 +45,8 @@ impl<CS: CipherSuite> ProtocolOutput<CS> {
     ///
     /// Consumers should truncate this to their desired comparison
     /// length (e.g., `&sas_code[..5]` for 40-bit security).
-    pub fn sas_code(&self) -> &[u8] {
-        self.sas.as_bytes()
+    pub fn sas_code(&self) -> &Sas {
+        &self.sas
     }
 
     /// Consume this output and return the session key.
