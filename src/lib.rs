@@ -101,8 +101,12 @@
 //!
 //! # Features
 //!
-//! - `xwing` — Ready-to-use ciphersuite using X-Wing (X25519 + ML-KEM-768)
-//!   and SHA3-256, providing both classical and post-quantum security.
+//! - `xwing` — Ciphersuite using X-Wing (X25519 + ML-KEM-768) and SHA3-256,
+//!   providing both classical and post-quantum security.
+//! - `dhkem-p256` — Ciphersuite using DHKEM(P-256, HKDF-SHA256) per RFC 9180
+//!   and SHA-256, at the 128-bit security level.
+//! - `dhkem-p384` — Ciphersuite using DHKEM(P-384, HKDF-SHA384) per RFC 9180
+//!   and SHA-384, at the 192-bit security level.
 //! - `std` — Enable `std::error::Error` impl for the error type (disabled
 //!   by default for `no_std`).
 

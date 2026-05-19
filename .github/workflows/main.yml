@@ -15,6 +15,8 @@ jobs:
         feature:
           - --no-default-features
           - --no-default-features --features xwing
+          - --no-default-features --features dhkem-p256
+          - --no-default-features --features dhkem-p384
           - --all-features
     name: test (${{ matrix.feature }})
     steps:
@@ -39,6 +41,7 @@ jobs:
         feature:
           - --no-default-features
           - --no-default-features --features xwing
+          - --no-default-features --features dhkem-p256
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
